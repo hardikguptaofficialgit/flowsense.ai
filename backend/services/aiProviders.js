@@ -1,3 +1,5 @@
+import "../env.js";
+
 function extractContent(payload) {
   if (!payload) return null;
   if (typeof payload === "string") return payload;
@@ -14,17 +16,17 @@ function extractContent(payload) {
   return null;
 }
 
-async function callOpenAI(messages) {
-  if (!process.env.OPENAI_API_KEY) return null;
+async function callGroq(messages) {
+  if (!process.env.GROQ_API_KEY) return null;
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
       messages,
       temperature: 0.2,
     }),
@@ -32,7 +34,7 @@ async function callOpenAI(messages) {
 
   if (!response.ok) return null;
   return {
-    provider: "openai",
+    provider: "groq",
     content: extractContent(await response.json()),
   };
 }
@@ -60,40 +62,15 @@ async function callNvidia(messages) {
   };
 }
 
-async function callPerplexity(messages) {
-  if (!process.env.PERPLEXITY_API_KEY) return null;
-
-  const response = await fetch("https://api.perplexity.ai/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: process.env.PERPLEXITY_MODEL || "sonar-pro",
-      messages,
-      temperature: 0.1,
-    }),
-  });
-
-  if (!response.ok) return null;
-  return {
-    provider: "perplexity",
-    content: extractContent(await response.json()),
-  };
-}
-
 export function configuredProviders() {
   return {
-    openai: Boolean(process.env.OPENAI_API_KEY),
     nvidia: Boolean(process.env.NVIDIA_API_KEY),
-    perplexity: Boolean(process.env.PERPLEXITY_API_KEY),
+    groq: Boolean(process.env.GROQ_API_KEY),
   };
 }
 
 export async function callProvider(provider, messages) {
-  if (provider === "openai") return callOpenAI(messages);
   if (provider === "nvidia") return callNvidia(messages);
-  if (provider === "perplexity") return callPerplexity(messages);
+  if (provider === "groq") return callGroq(messages);
   return null;
 }

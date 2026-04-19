@@ -55,8 +55,10 @@ export async function analyzeUrl(req, res) {
       },
     });
   } catch (error) {
-    res.status(500).json({
-      error: "Analysis failed unexpectedly. Please retry.",
+    const details = error instanceof Error ? error.message : "Unknown error";
+    const providerFailure = typeof details === "string" && (details.includes("provider") || details.includes("AI"));
+    res.status(providerFailure ? 502 : 500).json({
+      error: providerFailure ? "AI provider execution failed. Check provider keys/models." : "Analysis failed unexpectedly. Please retry.",
       details: error instanceof Error ? error.message : "Unknown error",
     });
   }

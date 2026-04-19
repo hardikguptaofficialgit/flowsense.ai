@@ -47,28 +47,12 @@ function parseJsonResponse(text) {
   }
 }
 
-function fallbackInsights(issues) {
-  return {
-    executiveSummary: "Primary friction is concentrated around discoverability and flow efficiency. Prioritize high-severity interaction blockers first.",
-    modelConfidence: 71,
-    actions: issues.slice(0, 4).map((issue, index) => ({
-      title: issue.title,
-      whyItMatters: issue.impact,
-      implementationPrompt: `Improve ${issue.title.toLowerCase()} in this product. Context: ${issue.explanation}. Produce concrete UI and copy changes with acceptance criteria. Priority level ${index + 1}.`,
-    })),
-  };
-}
-
 export async function orchestrateInsights(simulation, issues, learning) {
   const availability = configuredProviders();
-  const chain = ["openai", "nvidia", "perplexity"].filter((provider) => availability[provider]);
+  const chain = ["nvidia", "groq"].filter((provider) => availability[provider]);
 
   if (!chain.length) {
-    return {
-      provider: "heuristic",
-      ...fallbackInsights(issues),
-      providerTrace: { attempted: [], used: "heuristic" },
-    };
+    throw new Error("No AI provider configured. Add NVIDIA_API_KEY or GROQ_API_KEY in the backend environment.");
   }
 
   const messages = makePrompt(simulation, issues, learning);
@@ -100,9 +84,5 @@ export async function orchestrateInsights(simulation, issues, learning) {
     }
   }
 
-  return {
-    provider: "heuristic",
-    ...fallbackInsights(issues),
-    providerTrace: { attempted, used: "heuristic" },
-  };
+  throw new Error(`All configured AI providers failed. Attempted: ${attempted.join(", ")}`);
 }

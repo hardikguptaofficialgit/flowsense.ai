@@ -1,15 +1,11 @@
-import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { getBackendPort } from "./env.js";
 import { analyzeUrl, compareUrls, configStatus, deploymentHook, prMergeHook } from "./routes/analyze.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { configuredProviders } from "./services/aiProviders.js";
 
 const app = express();
-const PORT = Number(process.env.PORT) || 8787;
+const PORT = getBackendPort();
 
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
@@ -24,16 +20,14 @@ app.post("/api/compare", compareUrls);
 app.post("/api/hooks/deployment", deploymentHook);
 app.post("/api/hooks/pr-merge", prMergeHook);
 
-const distPath = path.resolve(__dirname, "..", "dist");
-app.use(express.static(distPath));
-app.get("*", (req, res, next) => {
-  if (req.path.startsWith("/api")) {
-    next();
-    return;
-  }
-  res.sendFile(path.join(distPath, "index.html"));
+app.use((_req, res) => {
+  res.status(404).json({
+    error: "Not found.",
+    message: "This backend serves API routes only. Use /api/* endpoints.",
+  });
 });
 
 app.listen(PORT, () => {
   console.log(`FlowSense backend listening on http://localhost:${PORT}`);
+  console.log(`Enabled providers: ${JSON.stringify(configuredProviders())}`);
 });

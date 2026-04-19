@@ -27,6 +27,24 @@ export interface JourneyStep {
   signal: string;
 }
 
+export interface AnalysisAction {
+  title: string;
+  whyItMatters: string;
+  implementationPrompt: string;
+}
+
+export interface LearningProfile {
+  runCount: number;
+  avgScore: number | null;
+  avgFriction: number | null;
+  trend: string;
+}
+
+export interface ProviderTrace {
+  attempted: string[];
+  used: string;
+}
+
 export interface AnalysisReport {
   id: string;
   analyzedAt: string;
@@ -42,22 +60,10 @@ export interface AnalysisReport {
   engineMode: string;
   modelConfidence?: number;
   aiSummary?: string;
-  aiActions?: Array<{
-    title: string;
-    whyItMatters: string;
-    implementationPrompt: string;
-  }>;
+  aiActions?: AnalysisAction[];
   providerUsed?: string;
-  providerTrace?: {
-    attempted: string[];
-    used: string;
-  };
-  learning?: {
-    runCount: number;
-    avgScore: number | null;
-    avgFriction: number | null;
-    trend: string;
-  };
+  providerTrace?: ProviderTrace;
+  learning?: LearningProfile;
   issues: Issue[];
   suggestions: Suggestion[];
   journey: JourneyStep[];
@@ -86,4 +92,40 @@ export interface CompareResponse {
   right: AnalysisReport;
   winner: "left" | "right" | "tie";
   delta: number;
+}
+
+export interface ProviderStatus {
+  nvidia: boolean;
+  groq: boolean;
+}
+
+export interface ConfigResponse {
+  providers: ProviderStatus;
+  continuousHooks: {
+    deployment: string;
+    pullRequest: string;
+  };
+}
+
+export interface WorkspaceProfile {
+  displayName: string;
+  companyName: string;
+  companyStage: string;
+  organization: string;
+  role: string;
+  website: string;
+  productUrl: string;
+  relevantUrls: string;
+  agentName: string;
+  agentMode: string;
+  agentNotes: string;
+  bio: string;
+  email?: string;
+  photoURL?: string;
+}
+
+export interface WorkspaceMessage {
+  tone: "info" | "success" | "warning";
+  title: string;
+  detail: string;
 }
