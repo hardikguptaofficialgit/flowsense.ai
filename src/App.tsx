@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { requestAnalysis, requestComparison } from "./api";
+import { jsPDF } from "jspdf";
+import { requestAnalysis, requestComparison, requestConfig } from "./api";
 import { ComparePanel, Header, InputPanel, LivePanel, ResultsPanel } from "./components/Panels";
 import type { AnalysisReport, CompareResponse, ExecutionStage, Issue } from "./types";
 
@@ -36,22 +37,49 @@ function downloadFile(filename: string, content: string, type: string) {
 
 function summaryText(report: AnalysisReport) {
   const lines = [
-    `FlowSense.ai UX Audit`,
+    "FlowSense.ai UX Audit",
     `URL: ${report.url}`,
     `Analyzed: ${new Date(report.analyzedAt).toLocaleString()}`,
     `UX Score: ${report.uxScore}`,
     `Screens Explored: ${report.screensVisited}`,
     `Friction Points: ${report.frictionPoints}`,
     `Confidence: ${report.confidenceScore}%`,
-    ``,
-    `Top Issues:`,
+    `Model Confidence: ${report.modelConfidence ?? report.confidenceScore}%`,
+    `Provider: ${report.providerUsed || "heuristic"}`,
+    "",
+    "Top Issues:",
     ...report.issues.map((issue) => `- [${issue.severity}] ${issue.title}: ${issue.explanation}`),
-    ``,
-    `Top Suggestions:`,
+    "",
+    "Top Suggestions:",
     ...report.suggestions.map((s) => `- P${s.priority}: ${s.action}`),
   ];
 
   return lines.join("\n");
+}
+
+function exportPdf(report: AnalysisReport) {
+  const pdf = new jsPDF();
+  const summary = summaryText(report).split("\n");
+  let y = 14;
+
+  pdf.setFontSize(14);
+  pdf.text("FlowSense.ai UX Audit", 14, y);
+  y += 8;
+  pdf.setFontSize(10);
+
+  for (const line of summary) {
+    const wrapped = pdf.splitTextToSize(line || " ", 180);
+    for (const fragment of wrapped) {
+      if (y > 280) {
+        pdf.addPage();
+        y = 14;
+      }
+      pdf.text(fragment, 14, y);
+      y += 5;
+    }
+  }
+
+  pdf.save(`flowsense-${Date.now()}.pdf`);
 }
 
 function createFallbackReport(url: string): AnalysisReport {
@@ -107,11 +135,7 @@ function createFallbackReport(url: string): AnalysisReport {
     engineMode: "offline-simulation",
     modelConfidence: 68,
     aiSummary: "Fallback reasoning identified primary conversion friction around navigation and CTA clarity.",
-    aiActions: issues.map((issue) => ({
-      title: issue.title,
-      whyItMatters: issue.impact,
-      implementationPrompt: issue.fixPrompt,
-    })),
+    aiActions: issues.map((issue) => ({ title: issue.title, whyItMatters: issue.impact, implementationPrompt: issue.fixPrompt })),
     providerUsed: "heuristic",
     providerTrace: { attempted: [], used: "heuristic" },
     learning: { runCount: 1, avgScore: uxScore, avgFriction: issues.length, trend: "warming" },
@@ -157,6 +181,7 @@ export default function App() {
       return [];
     }
   });
+  const [providers, setProviders] = useState({ openai: false, nvidia: false, perplexity: false });
 
   const timersRef = useRef<number[]>([]);
 
@@ -170,6 +195,12 @@ export default function App() {
   }, [history]);
 
   useEffect(() => () => timersRef.current.forEach((id) => window.clearTimeout(id)), []);
+
+  useEffect(() => {
+    requestConfig()
+      .then((config) => setProviders(config.providers))
+      .catch(() => setProviders({ openai: false, nvidia: false, perplexity: false }));
+  }, []);
 
   const runVisualProgress = (targetUrl: string) => {
     timersRef.current.forEach((id) => window.clearTimeout(id));
@@ -231,9 +262,7 @@ export default function App() {
       setCounters({ screens: fallback.screensVisited, frictions: fallback.frictionPoints, confidence: fallback.confidenceScore });
       setReport(fallback);
       setHistory((prev) => [fallback, ...prev.filter((item) => item.url !== fallback.url)].slice(0, 12));
-      if (error instanceof Error) {
-        console.warn(error.message);
-      }
+      if (error instanceof Error) console.warn(error.message);
     } finally {
       setLoading(false);
     }
@@ -271,6 +300,11 @@ export default function App() {
         reportCount={history.length}
       />
 
+      <section className="shell-card">
+        <p className="eyebrow">Model Orchestration</p>
+        <p>OpenAI: {providers.openai ? "Connected" : "Not configured"} | NVIDIA: {providers.nvidia ? "Connected" : "Not configured"} | Perplexity: {providers.perplexity ? "Connected" : "Not configured"}</p>
+      </section>
+
       <InputPanel
         url={url}
         onUrlChange={setUrl}
@@ -302,7 +336,9 @@ export default function App() {
           report={report}
           onCopy={() => navigator.clipboard.writeText(currentSummary)}
           onExportText={() => downloadFile(`flowsense-${Date.now()}.txt`, currentSummary, "text/plain")}
+          onExportPdf={() => exportPdf(report)}
           onExportJson={() => downloadFile(`flowsense-${Date.now()}.json`, JSON.stringify(report, null, 2), "application/json")}
+          onCopyFixPrompt={(prompt) => navigator.clipboard.writeText(prompt)}
         />
       )}
     </main>
