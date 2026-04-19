@@ -6,7 +6,7 @@ import {
   deploymentHook,
   prMergeHook,
 } from "../controllers/analyzeController.js";
-import { authSession, requireAuth, signIn, signOut, signUp } from "../controllers/authController.js";
+import { authSession, googleAuth, requireAuth, signIn, signOut, signUp } from "../controllers/authController.js";
 import { agentCatalog, chatMessage } from "../controllers/chatController.js";
 import { getProfile, listAnalyses, saveAnalysis, upsertProfile } from "../controllers/workspaceController.js";
 
@@ -24,6 +24,7 @@ router.post("/hooks/pr-merge", prMergeHook);
 
 router.post("/auth/signup", signUp);
 router.post("/auth/signin", signIn);
+router.post("/auth/google", googleAuth);
 router.post("/auth/signout", signOut);
 router.get("/auth/session", authSession);
 

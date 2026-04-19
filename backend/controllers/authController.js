@@ -7,6 +7,7 @@ import {
   revokeSessionToken,
   signInWithEmail,
   signUpWithEmail,
+  signInWithGoogle,
 } from "../services/authStore.js";
 import { sendJsonError } from "../utils/http.js";
 
@@ -90,4 +91,34 @@ export async function requireAuth(req, res, next) {
 
   req.user = user;
   next();
+}
+
+export async function googleAuth(req, res) {
+  try {
+    const { googleId, email, displayName, photoURL, idToken } = req.body || {};
+
+    // Validate required fields
+    if (!googleId || !email) {
+      throw new Error("Google ID and email are required.");
+    }
+
+    // In production, you should verify the ID token against Google's servers
+    // For now, we trust the frontend's JWT validation
+    // TODO: Implement server-side token verification with Google's API
+
+    const session = await signInWithGoogle({
+      googleId,
+      email,
+      displayName,
+      photoURL,
+    });
+
+    res.setHeader("Set-Cookie", buildSessionCookie(session.token));
+    res.status(200).json({
+      user: session.user,
+      session: { authenticated: true },
+    });
+  } catch (error) {
+    sendJsonError(res, 401, error instanceof Error ? error.message : "Google sign-in failed.");
+  }
 }

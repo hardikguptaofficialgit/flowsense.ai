@@ -89,6 +89,23 @@ export async function requestSignOut() {
   return parseResponse<{ ok: boolean }>(response);
 }
 
+export async function requestGoogleAuth(payload: {
+  googleId: string;
+  email: string;
+  displayName?: string;
+  photoURL?: string;
+  idToken?: string;
+}) {
+  const response = await fetch(`${API_BASE_URL}/auth/google`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse<{ user: FrontendUser }>(response);
+}
+
 export async function requestProfile(): Promise<WorkspaceProfile> {
   const response = await fetch(`${API_BASE_URL}/workspace/profile`, { credentials: "include" });
   return parseResponse<WorkspaceProfile>(response);

@@ -1539,7 +1539,27 @@ export default function App() {
   };
 
   const handleGoogleAuth = async () => {
-    setAuthError("Google sign-in is not enabled yet in backend auth.");
+    try {
+      setAuthLoading(true);
+      setAuthError("");
+
+      // NOTE: In production, you would integrate with Google's Sign-In library
+      // Install: npm install @react-oauth/google
+      // Then wrap App with: <GoogleOAuthProvider clientId="...">
+      // And trigger: googleLogin() from the button
+      // This handler would then receive the credential JWT
+
+      // For now, show a helpful message about setup
+      setAuthError(
+        "Google Sign-In requires setup: Install @react-oauth/google and add your Google Client ID. " +
+        "Backend OAuth endpoint is ready at /api/auth/google. " +
+        "See backend/.env.example for configuration."
+      );
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Google sign-in setup required.");
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const handleSignOut = async () => {

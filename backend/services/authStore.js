@@ -319,3 +319,82 @@ export async function listAnalysesForUser(userId, max = 12) {
     .sort((a, b) => new Date(b.analyzedAt).getTime() - new Date(a.analyzedAt).getTime())
     .slice(0, max);
 }
+
+export async function signInWithGoogle({ googleId, email, displayName, photoURL }) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail || !googleId) {
+    throw new Error("Google ID and email are required for OAuth sign-in.");
+  }
+
+  const store = await readStore();
+  
+  // Try to find existing user by email
+  let user = Object.values(store.users).find((u) => u.email === normalizedEmail);
+  
+  if (!user) {
+    // Create new user from Google credentials
+    const userId = crypto.randomUUID();
+    user = {
+      id: userId,
+      email: normalizedEmail,
+      displayName: String(displayName || "").trim() || normalizedEmail.split("@")[0],
+      googleId,
+      photoURL: String(photoURL || "").trim(),
+      // Google OAuth users don't have password hash
+      passwordHash: null,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    
+    store.users[userId] = user;
+    store.profiles[userId] = {
+      displayName: user.displayName,
+      email: user.email,
+      photoURL: user.photoURL,
+      companyName: "",
+      companyStage: "",
+      organization: "",
+      role: "",
+      website: "",
+      productUrl: "",
+      relevantUrls: "",
+      agentName: "",
+      agentMode: "",
+      agentNotes: "",
+      bio: "",
+      profileComplete: false,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+  } else {
+    // Update existing user with Google ID if not already linked
+    if (!user.googleId) {
+      user.googleId = googleId;
+      user.updatedAt = nowIso();
+    }
+    // Update photo if provided
+    if (photoURL && !user.photoURL) {
+      user.photoURL = String(photoURL).trim();
+    }
+    store.users[user.id] = user;
+  }
+  
+  await writeStore(store);
+  
+  // Create session token
+  const token = createSessionToken(user.id);
+  const issuedAtMs = Number(parseSessionToken(token).issuedAt);
+  const expiresAt = issuedAtMs + SESSION_TTL_MS;
+  
+  store.sessions[token] = {
+    userId: user.id,
+    issuedAt: issuedAtMs,
+    expiresAt,
+  };
+  await writeStore(store);
+  
+  return {
+    token,
+    user: publicUser(user),
+  };
+}
