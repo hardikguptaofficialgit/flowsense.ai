@@ -1,0 +1,89 @@
+export type Severity = "Low" | "Medium" | "High" | "Critical";
+
+export interface Issue {
+  id: string;
+  category: string;
+  title: string;
+  severity: Severity;
+  explanation: string;
+  impact: string;
+  suggestion: string;
+  fixPrompt: string;
+}
+
+export interface Suggestion {
+  id: string;
+  priority: number;
+  title: string;
+  action: string;
+  rationale: string;
+}
+
+export interface JourneyStep {
+  step: number;
+  action: string;
+  screen: string;
+  intent: string;
+  signal: string;
+}
+
+export interface AnalysisReport {
+  id: string;
+  analyzedAt: string;
+  url: string;
+  pageTitle: string;
+  uxScore: number;
+  confidenceScore: number;
+  taskDifficulty: number;
+  screensVisited: number;
+  frictionPoints: number;
+  perceivedLoadScore: number;
+  timeToInteractionMs: number;
+  engineMode: string;
+  modelConfidence?: number;
+  aiSummary?: string;
+  aiActions?: Array<{
+    title: string;
+    whyItMatters: string;
+    implementationPrompt: string;
+  }>;
+  providerUsed?: string;
+  providerTrace?: {
+    attempted: string[];
+    used: string;
+  };
+  learning?: {
+    runCount: number;
+    avgScore: number | null;
+    avgFriction: number | null;
+    trend: string;
+  };
+  issues: Issue[];
+  suggestions: Suggestion[];
+  journey: JourneyStep[];
+  summary: {
+    strengths: string[];
+    risks: string[];
+  };
+}
+
+export interface ExecutionStage {
+  label: string;
+  detail: string;
+}
+
+export interface AnalyzeResponse {
+  report: AnalysisReport;
+  execution: {
+    engine: string;
+    stages: ExecutionStage[];
+    timeline: JourneyStep[];
+  };
+}
+
+export interface CompareResponse {
+  left: AnalysisReport;
+  right: AnalysisReport;
+  winner: "left" | "right" | "tie";
+  delta: number;
+}
