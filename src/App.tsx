@@ -193,7 +193,6 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
 
   const timersRef = useRef<number[]>([]);
 
@@ -205,13 +204,6 @@ export default function App() {
 
   useEffect(() => {
     requestConfig().then((config) => setProviders(config.providers)).catch(() => setProviders({ openai: false, nvidia: false, perplexity: false }));
-  }, []);
-
-  useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
@@ -242,7 +234,7 @@ export default function App() {
           frictions: Math.min(1 + index, 7 + (seed % 3)),
           confidence: Math.min(55 + index * 6, 92),
         });
-      }, 280 + index * 420);
+      }, 260 + index * 360);
       timersRef.current.push(timer);
     });
   };
@@ -348,65 +340,58 @@ export default function App() {
 
   return (
     <main className="site-shell">
-      <section className="hero-section">
-        <div className="floating-layer layer-one" style={{ transform: `translateY(${scrollY * 0.18}px)` }} />
-        <div className="floating-layer layer-two" style={{ transform: `translateY(${scrollY * -0.12}px)` }} />
-        <nav className="top-nav">
-          <div className="brand-lockup">
-            <img src={logoSrc} alt="FlowSense logo" className="brand-logo" />
-            <div>
-              <p className="eyebrow">FrictionLog</p>
-              <h1>FlowSense.ai</h1>
-            </div>
+      <header className="main-nav">
+        <div className="brand-row">
+          <img src={logoSrc} alt="FlowSense logo" className="brand-logo" />
+          <div>
+            <p className="eyebrow">FrictionLog</p>
+            <h1>FlowSense.ai</h1>
           </div>
-          <div className="top-actions">
-            {!currentUser ? <button onClick={() => setAuthOpen(true)}>Sign In</button> : <button onClick={() => window.location.href = "#workspace"}>Open Workspace</button>}
-          </div>
-        </nav>
-
-        <div className="hero-grid">
-          <article className="hero-copy">
-            <p className="eyebrow">Autonomous UX Intelligence</p>
-            <h2>Continuous product experience auditing with real-time agent reasoning</h2>
-            <p>
-              FlowSense simulates realistic user journeys, detects friction, prioritizes impact, and generates fix-ready prompts your builders can execute instantly.
-            </p>
-            <div className="cta-row">
-              <button onClick={() => setAuthOpen(true)}>{currentUser ? "Manage Account" : "Get Started"}</button>
-              <button className="ghost" onClick={() => window.location.href = "#workspace"}>Explore Demo Workspace</button>
-            </div>
-            <p className="status-line">Providers: OpenAI {providers.openai ? "connected" : "offline"} | NVIDIA {providers.nvidia ? "connected" : "offline"} | Perplexity {providers.perplexity ? "connected" : "offline"}</p>
-          </article>
-          <article className="hero-visual shell-card" style={{ transform: `translateY(${scrollY * 0.08}px)` }}>
-            <h3>Live Perception Engine</h3>
-            <div className="signal-stack">
-              <span>Agent explored 5 screens</span>
-              <span>Detected 8 friction points</span>
-              <span>Model confidence 87%</span>
-              <span>Path continuity validated</span>
-            </div>
-            <div className="mini-terminal">
-              <p>Launching agent runtime...</p>
-              <p>Scanning homepage hierarchy...</p>
-              <p>Simulating conversion intent...</p>
-              <p>Composing prioritized UX actions...</p>
-            </div>
-          </article>
         </div>
-      </section>
+        <nav className="nav-links">
+          <a href="#workspace">Workspace</a>
+          <a href="#docs">Docs</a>
+          <a href="#about">About Us</a>
+        </nav>
+        <div className="nav-actions">
+          {!currentUser ? (
+            <button onClick={() => setAuthOpen(true)}>Sign In</button>
+          ) : (
+            <button onClick={() => signOut(auth!)}>Sign Out</button>
+          )}
+        </div>
+      </header>
 
-      <section className="feature-section">
-        <article className="feature-card">
-          <h3>Agent-Driven Simulation</h3>
-          <p>Simulates onboarding, exploration, and conversion journeys with staged telemetry.</p>
+      <section className="hero-flow">
+        <article className="hero-left">
+          <p className="eyebrow">Autonomous UX Intelligence</p>
+          <h2>Continuous product experience auditing with real-time agent reasoning</h2>
+          <p>
+            FlowSense simulates real user journeys, detects friction, prioritizes action, and gives fix-ready prompts your team can use instantly.
+          </p>
+          <div className="hero-tags">
+            <span>Agent-driven simulation</span>
+            <span>Multi-model insights</span>
+            <span>Developer-ready outputs</span>
+          </div>
+          <p className="status-line">
+            OpenAI {providers.openai ? "connected" : "offline"} | NVIDIA {providers.nvidia ? "connected" : "offline"} | Perplexity {providers.perplexity ? "connected" : "offline"}
+          </p>
         </article>
-        <article className="feature-card" style={{ transform: `translateY(${scrollY * -0.04}px)` }}>
-          <h3>Fix-Ready Action Layer</h3>
-          <p>Every detected issue includes implementation prompts for builders and dev teams.</p>
-        </article>
-        <article className="feature-card">
-          <h3>Continuous Monitoring</h3>
-          <p>Webhook endpoints let you trigger UX audits on deployment and PR merge workflows.</p>
+        <article className="hero-right">
+          <h3>Live Perception Engine</h3>
+          <div className="signal-row">
+            <span>5 screens explored</span>
+            <span>8 frictions detected</span>
+            <span>87% confidence</span>
+            <span>Path continuity checked</span>
+          </div>
+          <div className="mini-terminal">
+            <p>Launching autonomous agent...</p>
+            <p>Scanning homepage hierarchy...</p>
+            <p>Navigating conversion journey...</p>
+            <p>Generating prioritized UX actions...</p>
+          </div>
         </article>
       </section>
 
@@ -421,11 +406,6 @@ export default function App() {
               onSignOut={() => auth && signOut(auth)}
               logoSrc={logoSrc}
             />
-
-            <section className="shell-card">
-              <p className="eyebrow">Model Orchestration</p>
-              <p>OpenAI: {providers.openai ? "Connected" : "Not configured"} | NVIDIA: {providers.nvidia ? "Connected" : "Not configured"} | Perplexity: {providers.perplexity ? "Connected" : "Not configured"}</p>
-            </section>
 
             <InputPanel
               url={url}
@@ -465,22 +445,48 @@ export default function App() {
             )}
           </>
         ) : (
-          <section className="shell-card auth-locked">
-            <h3>Workspace is protected</h3>
-            <p>Sign in to unlock live analysis, exports, history, and continuous UX monitoring.</p>
+          <section className="auth-inline">
+            <h3>Workspace Access Required</h3>
+            <p>Sign in to run analyses, export reports, and manage project history.</p>
             {!hasFirebaseConfig && <p className="warning-copy">Firebase is not configured yet. Add `VITE_FIREBASE_*` keys to `.env`.</p>}
             <button onClick={() => setAuthOpen(true)}>Open Authentication</button>
           </section>
         )}
       </section>
 
+      <section id="docs" className="docs-section">
+        <h3>Docs</h3>
+        <div className="docs-grid">
+          <article>
+            <h4>Quick Start</h4>
+            <p>Sign in, paste URL, and click Analyze Experience to generate a complete UX audit report.</p>
+          </article>
+          <article>
+            <h4>Workflow Hooks</h4>
+            <p>Use `/api/hooks/deployment` and `/api/hooks/pr-merge` to trigger continuous UX checks in CI workflows.</p>
+          </article>
+          <article>
+            <h4>Exports</h4>
+            <p>Export reports as JSON, text, or PDF. Copy fix prompts directly into app builders or developer tickets.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="about" className="about-section">
+        <h3>About Us</h3>
+        <p>
+          FlowSense.ai is built to help product teams audit UX continuously, explain friction clearly, and move from diagnosis to action faster.
+        </p>
+        <p className="built-by">Built by Hardik Gupta</p>
+      </section>
+
       {authOpen && (
         <div className="auth-overlay" role="dialog" aria-modal="true">
-          <div className="auth-card shell-card">
+          <div className="auth-card">
             <button className="close-auth" onClick={() => setAuthOpen(false)}>Close</button>
             <img src={logoSrc} alt="FlowSense mark" className="auth-logo" />
             <h3>{authMode === "signin" ? "Sign in" : "Create account"}</h3>
-            <p>Secure access to the FlowSense autonomous UX workspace.</p>
+            <p>Secure access to the FlowSense workspace.</p>
             <input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="Email" type="email" />
             <input value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Password" type="password" />
             <button onClick={handleEmailAuth} disabled={authLoading || !hasFirebaseConfig}>

@@ -4,12 +4,13 @@ interface HeaderProps {
   onToggleCompare: () => void;
   compareEnabled: boolean;
   reportCount: number;
-  userEmail: string;
-  onSignOut: () => void;
+  userEmail?: string;
+  onSignOut?: () => void;
+  onOpenAuth?: () => void;
   logoSrc: string;
 }
 
-export function Header({ onToggleCompare, compareEnabled, reportCount, userEmail, onSignOut, logoSrc }: HeaderProps) {
+export function Header({ onToggleCompare, compareEnabled, reportCount, userEmail, onSignOut, onOpenAuth, logoSrc }: HeaderProps) {
   return (
     <header className="shell-card header">
       <div className="brand-lockup">
@@ -17,7 +18,7 @@ export function Header({ onToggleCompare, compareEnabled, reportCount, userEmail
         <div>
           <p className="eyebrow">FrictionLog Intelligence</p>
           <h2>FlowSense.ai Workspace</h2>
-          <p className="subtitle">Signed in as {userEmail}</p>
+          <p className="subtitle">{userEmail ? `Signed in as ${userEmail}` : "Guest mode active"}</p>
         </div>
       </div>
       <div className="header-actions">
@@ -25,7 +26,11 @@ export function Header({ onToggleCompare, compareEnabled, reportCount, userEmail
           {compareEnabled ? "Comparison Mode" : "Single URL Mode"}
         </button>
         <span className="history-pill">History: {reportCount}</span>
-        <button className="danger-btn" onClick={onSignOut}>Sign Out</button>
+        {userEmail ? (
+          <button className="danger-btn" onClick={onSignOut}>Sign Out</button>
+        ) : (
+          <button onClick={onOpenAuth}>Sign In</button>
+        )}
       </div>
     </header>
   );
