@@ -1,27 +1,31 @@
 import type { AnalysisReport, CompareResponse, ExecutionStage } from "../types";
 
 interface HeaderProps {
-  darkMode: boolean;
-  onToggleTheme: () => void;
   onToggleCompare: () => void;
   compareEnabled: boolean;
   reportCount: number;
+  userEmail: string;
+  onSignOut: () => void;
+  logoSrc: string;
 }
 
-export function Header({ darkMode, onToggleTheme, onToggleCompare, compareEnabled, reportCount }: HeaderProps) {
+export function Header({ onToggleCompare, compareEnabled, reportCount, userEmail, onSignOut, logoSrc }: HeaderProps) {
   return (
     <header className="shell-card header">
-      <div>
-        <p className="eyebrow">FrictionLog</p>
-        <h1>FlowSense.ai</h1>
-        <p className="subtitle">Autonomous UX analysis that feels deliberate and production-ready.</p>
+      <div className="brand-lockup">
+        <img src={logoSrc} alt="FlowSense logo" className="brand-logo" />
+        <div>
+          <p className="eyebrow">FrictionLog Intelligence</p>
+          <h2>FlowSense.ai Workspace</h2>
+          <p className="subtitle">Signed in as {userEmail}</p>
+        </div>
       </div>
       <div className="header-actions">
         <button className={`toggle ${compareEnabled ? "active" : ""}`} onClick={onToggleCompare}>
           {compareEnabled ? "Comparison Mode" : "Single URL Mode"}
         </button>
-        <button className="toggle" onClick={onToggleTheme}>{darkMode ? "Dark" : "Light"} Theme</button>
         <span className="history-pill">History: {reportCount}</span>
+        <button className="danger-btn" onClick={onSignOut}>Sign Out</button>
       </div>
     </header>
   );
@@ -39,6 +43,10 @@ interface InputPanelProps {
 export function InputPanel({ url, onUrlChange, onAnalyze, loading, history, onLoadHistory }: InputPanelProps) {
   return (
     <section className="shell-card input-panel">
+      <div className="panel-headline">
+        <h3>Launch Autonomous UX Audit</h3>
+        <p>Paste any production URL to run agent simulation and friction intelligence.</p>
+      </div>
       <div className="input-row">
         <input
           value={url}
@@ -74,7 +82,7 @@ interface ComparePanelProps {
 export function ComparePanel({ leftUrl, rightUrl, onLeftChange, onRightChange, onCompare, loading, result }: ComparePanelProps) {
   return (
     <section className="shell-card compare-panel">
-      <h2>Side-by-side UX comparison</h2>
+      <h3>Side-by-side UX comparison</h3>
       <div className="compare-inputs">
         <input value={leftUrl} onChange={(event) => onLeftChange(event.target.value)} placeholder="https://product-a.com" />
         <input value={rightUrl} onChange={(event) => onRightChange(event.target.value)} placeholder="https://product-b.com" />
@@ -83,17 +91,17 @@ export function ComparePanel({ leftUrl, rightUrl, onLeftChange, onRightChange, o
       {result && (
         <div className="compare-results">
           <article className="mini-score">
-            <h3>{new URL(result.left.url).hostname}</h3>
+            <h4>{new URL(result.left.url).hostname}</h4>
             <strong>{result.left.uxScore}</strong>
             <p>{result.left.frictionPoints} frictions</p>
           </article>
           <article className="mini-score">
-            <h3>{new URL(result.right.url).hostname}</h3>
+            <h4>{new URL(result.right.url).hostname}</h4>
             <strong>{result.right.uxScore}</strong>
             <p>{result.right.frictionPoints} frictions</p>
           </article>
           <article className="mini-score winner">
-            <h3>Winner</h3>
+            <h4>Winner</h4>
             <strong>{result.winner === "tie" ? "Tie" : result.winner === "left" ? "Left URL" : "Right URL"}</strong>
             <p>Score delta: {result.delta}</p>
           </article>
@@ -117,7 +125,7 @@ export function LivePanel({ logs, stageIndex, counters }: LivePanelProps) {
   return (
     <section className="shell-card live-panel">
       <div className="panel-head">
-        <h2>Live Agent Execution</h2>
+        <h3>Live Agent Execution</h3>
         <p>Stage {Math.max(stageIndex, 0)} / 7</p>
       </div>
       <div className="counter-row">

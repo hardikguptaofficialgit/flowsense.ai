@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  type User,
+} from "firebase/auth";
 import { requestAnalysis, requestComparison, requestConfig } from "./api";
 import { ComparePanel, Header, InputPanel, LivePanel, ResultsPanel } from "./components/Panels";
+import { auth, googleProvider, hasFirebaseConfig } from "./lib/firebase";
+import logoSrc from "./assets/flowsense-logo.svg";
 import type { AnalysisReport, CompareResponse, ExecutionStage, Issue } from "./types";
 
-const DEFAULT_LOGS: ExecutionStage[] = [
-  { label: "Launching agent...", detail: "Awaiting analysis start." },
-];
+const DEFAULT_LOGS: ExecutionStage[] = [{ label: "Launching agent...", detail: "Awaiting analysis start." }];
 
 function asValidUrl(value: string) {
   const normalized = /^https?:\/\//i.test(value.trim()) ? value.trim() : `https://${value.trim()}`;
@@ -153,17 +161,13 @@ function createFallbackReport(url: string): AnalysisReport {
       { step: 3, action: "Conversion attempt", screen: `${new URL(url).origin}/pricing`, intent: "Complete task", signal: "Friction checkpoints captured" },
     ],
     summary: {
-      strengths: [
-        "Core value is detectable without deep exploration.",
-        "A likely conversion path exists through top-level navigation.",
-      ],
+      strengths: ["Core value is detectable without deep exploration.", "A likely conversion path exists through top-level navigation."],
       risks: issues.map((issue) => issue.impact),
     },
   };
 }
 
 export default function App() {
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("flowsense-theme") === "dark");
   const [url, setUrl] = useState("https://example.com");
   const [logs, setLogs] = useState<ExecutionStage[]>(DEFAULT_LOGS);
   const [stageIndex, setStageIndex] = useState(0);
@@ -182,13 +186,16 @@ export default function App() {
     }
   });
   const [providers, setProviders] = useState({ openai: false, nvidia: false, perplexity: false });
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
 
   const timersRef = useRef<number[]>([]);
-
-  useEffect(() => {
-    localStorage.setItem("flowsense-theme", darkMode ? "dark" : "light");
-    document.body.dataset.theme = darkMode ? "dark" : "light";
-  }, [darkMode]);
 
   useEffect(() => {
     localStorage.setItem("flowsense-history", JSON.stringify(history));
@@ -197,9 +204,19 @@ export default function App() {
   useEffect(() => () => timersRef.current.forEach((id) => window.clearTimeout(id)), []);
 
   useEffect(() => {
-    requestConfig()
-      .then((config) => setProviders(config.providers))
-      .catch(() => setProviders({ openai: false, nvidia: false, perplexity: false }));
+    requestConfig().then((config) => setProviders(config.providers)).catch(() => setProviders({ openai: false, nvidia: false, perplexity: false }));
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setScrollY(window.scrollY);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!auth) return;
+    return onAuthStateChanged(auth, (user) => setCurrentUser(user));
   }, []);
 
   const runVisualProgress = (targetUrl: string) => {
@@ -248,11 +265,7 @@ export default function App() {
       const response = await requestAnalysis(normalized);
       setLogs(response.execution.stages);
       setStageIndex(response.execution.stages.length);
-      setCounters({
-        screens: response.report.screensVisited,
-        frictions: response.report.frictionPoints,
-        confidence: response.report.confidenceScore,
-      });
+      setCounters({ screens: response.report.screensVisited, frictions: response.report.frictionPoints, confidence: response.report.confidenceScore });
       setReport(response.report);
       setHistory((prev) => [response.report, ...prev.filter((item) => item.url !== response.report.url)].slice(0, 12));
     } catch (error) {
@@ -288,58 +301,198 @@ export default function App() {
     }
   };
 
+  const handleEmailAuth = async () => {
+    if (!auth) {
+      setAuthError("Firebase Auth is not configured.");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError("");
+
+    try {
+      if (authMode === "signup") {
+        await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+      } else {
+        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+      }
+      setAuthOpen(false);
+      setAuthEmail("");
+      setAuthPassword("");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Authentication failed.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    if (!auth) {
+      setAuthError("Firebase Auth is not configured.");
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError("");
+
+    try {
+      await signInWithPopup(auth, googleProvider);
+      setAuthOpen(false);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Google sign in failed.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const currentSummary = useMemo(() => (report ? summaryText(report) : ""), [report]);
 
   return (
-    <main className="app-shell">
-      <Header
-        darkMode={darkMode}
-        onToggleTheme={() => setDarkMode((prev) => !prev)}
-        onToggleCompare={() => setCompareEnabled((prev) => !prev)}
-        compareEnabled={compareEnabled}
-        reportCount={history.length}
-      />
+    <main className="site-shell">
+      <section className="hero-section">
+        <div className="floating-layer layer-one" style={{ transform: `translateY(${scrollY * 0.18}px)` }} />
+        <div className="floating-layer layer-two" style={{ transform: `translateY(${scrollY * -0.12}px)` }} />
+        <nav className="top-nav">
+          <div className="brand-lockup">
+            <img src={logoSrc} alt="FlowSense logo" className="brand-logo" />
+            <div>
+              <p className="eyebrow">FrictionLog</p>
+              <h1>FlowSense.ai</h1>
+            </div>
+          </div>
+          <div className="top-actions">
+            {!currentUser ? <button onClick={() => setAuthOpen(true)}>Sign In</button> : <button onClick={() => window.location.href = "#workspace"}>Open Workspace</button>}
+          </div>
+        </nav>
 
-      <section className="shell-card">
-        <p className="eyebrow">Model Orchestration</p>
-        <p>OpenAI: {providers.openai ? "Connected" : "Not configured"} | NVIDIA: {providers.nvidia ? "Connected" : "Not configured"} | Perplexity: {providers.perplexity ? "Connected" : "Not configured"}</p>
+        <div className="hero-grid">
+          <article className="hero-copy">
+            <p className="eyebrow">Autonomous UX Intelligence</p>
+            <h2>Continuous product experience auditing with real-time agent reasoning</h2>
+            <p>
+              FlowSense simulates realistic user journeys, detects friction, prioritizes impact, and generates fix-ready prompts your builders can execute instantly.
+            </p>
+            <div className="cta-row">
+              <button onClick={() => setAuthOpen(true)}>{currentUser ? "Manage Account" : "Get Started"}</button>
+              <button className="ghost" onClick={() => window.location.href = "#workspace"}>Explore Demo Workspace</button>
+            </div>
+            <p className="status-line">Providers: OpenAI {providers.openai ? "connected" : "offline"} | NVIDIA {providers.nvidia ? "connected" : "offline"} | Perplexity {providers.perplexity ? "connected" : "offline"}</p>
+          </article>
+          <article className="hero-visual shell-card" style={{ transform: `translateY(${scrollY * 0.08}px)` }}>
+            <h3>Live Perception Engine</h3>
+            <div className="signal-stack">
+              <span>Agent explored 5 screens</span>
+              <span>Detected 8 friction points</span>
+              <span>Model confidence 87%</span>
+              <span>Path continuity validated</span>
+            </div>
+            <div className="mini-terminal">
+              <p>Launching agent runtime...</p>
+              <p>Scanning homepage hierarchy...</p>
+              <p>Simulating conversion intent...</p>
+              <p>Composing prioritized UX actions...</p>
+            </div>
+          </article>
+        </div>
       </section>
 
-      <InputPanel
-        url={url}
-        onUrlChange={setUrl}
-        onAnalyze={handleAnalyze}
-        loading={loading}
-        history={history}
-        onLoadHistory={(entry) => {
-          setReport(entry);
-          setUrl(entry.url);
-        }}
-      />
+      <section className="feature-section">
+        <article className="feature-card">
+          <h3>Agent-Driven Simulation</h3>
+          <p>Simulates onboarding, exploration, and conversion journeys with staged telemetry.</p>
+        </article>
+        <article className="feature-card" style={{ transform: `translateY(${scrollY * -0.04}px)` }}>
+          <h3>Fix-Ready Action Layer</h3>
+          <p>Every detected issue includes implementation prompts for builders and dev teams.</p>
+        </article>
+        <article className="feature-card">
+          <h3>Continuous Monitoring</h3>
+          <p>Webhook endpoints let you trigger UX audits on deployment and PR merge workflows.</p>
+        </article>
+      </section>
 
-      {compareEnabled && (
-        <ComparePanel
-          leftUrl={leftUrl}
-          rightUrl={rightUrl}
-          onLeftChange={setLeftUrl}
-          onRightChange={setRightUrl}
-          onCompare={handleCompare}
-          loading={loading}
-          result={compareResult}
-        />
-      )}
+      <section id="workspace" className="workspace-shell">
+        {currentUser ? (
+          <>
+            <Header
+              onToggleCompare={() => setCompareEnabled((prev) => !prev)}
+              compareEnabled={compareEnabled}
+              reportCount={history.length}
+              userEmail={currentUser.email || "Authenticated user"}
+              onSignOut={() => auth && signOut(auth)}
+              logoSrc={logoSrc}
+            />
 
-      <LivePanel logs={logs} stageIndex={stageIndex} counters={counters} />
+            <section className="shell-card">
+              <p className="eyebrow">Model Orchestration</p>
+              <p>OpenAI: {providers.openai ? "Connected" : "Not configured"} | NVIDIA: {providers.nvidia ? "Connected" : "Not configured"} | Perplexity: {providers.perplexity ? "Connected" : "Not configured"}</p>
+            </section>
 
-      {report && (
-        <ResultsPanel
-          report={report}
-          onCopy={() => navigator.clipboard.writeText(currentSummary)}
-          onExportText={() => downloadFile(`flowsense-${Date.now()}.txt`, currentSummary, "text/plain")}
-          onExportPdf={() => exportPdf(report)}
-          onExportJson={() => downloadFile(`flowsense-${Date.now()}.json`, JSON.stringify(report, null, 2), "application/json")}
-          onCopyFixPrompt={(prompt) => navigator.clipboard.writeText(prompt)}
-        />
+            <InputPanel
+              url={url}
+              onUrlChange={setUrl}
+              onAnalyze={handleAnalyze}
+              loading={loading}
+              history={history}
+              onLoadHistory={(entry) => {
+                setReport(entry);
+                setUrl(entry.url);
+              }}
+            />
+
+            {compareEnabled && (
+              <ComparePanel
+                leftUrl={leftUrl}
+                rightUrl={rightUrl}
+                onLeftChange={setLeftUrl}
+                onRightChange={setRightUrl}
+                onCompare={handleCompare}
+                loading={loading}
+                result={compareResult}
+              />
+            )}
+
+            <LivePanel logs={logs} stageIndex={stageIndex} counters={counters} />
+
+            {report && (
+              <ResultsPanel
+                report={report}
+                onCopy={() => navigator.clipboard.writeText(currentSummary)}
+                onExportText={() => downloadFile(`flowsense-${Date.now()}.txt`, currentSummary, "text/plain")}
+                onExportPdf={() => exportPdf(report)}
+                onExportJson={() => downloadFile(`flowsense-${Date.now()}.json`, JSON.stringify(report, null, 2), "application/json")}
+                onCopyFixPrompt={(prompt) => navigator.clipboard.writeText(prompt)}
+              />
+            )}
+          </>
+        ) : (
+          <section className="shell-card auth-locked">
+            <h3>Workspace is protected</h3>
+            <p>Sign in to unlock live analysis, exports, history, and continuous UX monitoring.</p>
+            {!hasFirebaseConfig && <p className="warning-copy">Firebase is not configured yet. Add `VITE_FIREBASE_*` keys to `.env`.</p>}
+            <button onClick={() => setAuthOpen(true)}>Open Authentication</button>
+          </section>
+        )}
+      </section>
+
+      {authOpen && (
+        <div className="auth-overlay" role="dialog" aria-modal="true">
+          <div className="auth-card shell-card">
+            <button className="close-auth" onClick={() => setAuthOpen(false)}>Close</button>
+            <img src={logoSrc} alt="FlowSense mark" className="auth-logo" />
+            <h3>{authMode === "signin" ? "Sign in" : "Create account"}</h3>
+            <p>Secure access to the FlowSense autonomous UX workspace.</p>
+            <input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="Email" type="email" />
+            <input value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Password" type="password" />
+            <button onClick={handleEmailAuth} disabled={authLoading || !hasFirebaseConfig}>
+              {authLoading ? "Processing..." : authMode === "signin" ? "Sign In" : "Create Account"}
+            </button>
+            <button className="ghost" onClick={handleGoogleAuth} disabled={authLoading || !hasFirebaseConfig}>Continue with Google</button>
+            <button className="text-btn" onClick={() => setAuthMode((prev) => prev === "signin" ? "signup" : "signin")}>
+              {authMode === "signin" ? "Need an account? Create one" : "Already have an account? Sign in"}
+            </button>
+            {authError && <p className="warning-copy">{authError}</p>}
+          </div>
+        </div>
       )}
     </main>
   );
