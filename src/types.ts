@@ -122,10 +122,37 @@ export interface WorkspaceProfile {
   bio: string;
   email?: string;
   photoURL?: string;
+  profileComplete?: boolean;
 }
 
 export interface WorkspaceMessage {
   tone: "info" | "success" | "warning";
   title: string;
   detail: string;
+}
+
+export interface FrontendUser {
+  id: string;
+  email: string;
+  displayName: string;
+}
+
+export interface ChatAgent {
+  id: string;
+  name: string;
+  role: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  agentId: string;
+  createdAt: string;
+}
+
+export interface ChatMessageResponse {
+  provider: string;
+  agentId: string;
+  answer: string;
 }

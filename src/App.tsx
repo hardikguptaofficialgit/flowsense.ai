@@ -1,22 +1,31 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
-import {
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-  type User,
-} from "firebase/auth";
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc } from "firebase/firestore";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { Interfaces, Misc } from "doodle-icons";
-import { requestAnalysis, requestComparison, requestConfig } from "./api";
-import { auth, db, googleProvider, hasFirebaseConfig } from "./lib/firebase";
+import {
+  requestAnalysis,
+  requestComparison,
+  requestConfig,
+  requestHistory,
+  requestProfile,
+  requestSession,
+  requestSignIn,
+  requestSignOut,
+  requestSignUp,
+  saveHistoryEntry,
+  saveProfile,
+} from "./api";
 import logoSrc from "./assets/flowsense.png";
 import { WorkspacePage } from "./components/Panels";
 import { AuthModal, OnboardingModal } from "./components/AuthModal";
-import type { AnalysisReport, CompareResponse, ExecutionStage, ProviderStatus, WorkspaceProfile } from "./types";
+import type {
+  AnalysisReport,
+  CompareResponse,
+  ExecutionStage,
+  FrontendUser,
+  ProviderStatus,
+  WorkspaceProfile,
+} from "./types";
 import { getDiceBearAvatarUrl } from "./utils/avatar";
 
 const DEFAULT_LOGS: ExecutionStage[] = [{ label: "Launching agent...", detail: "Awaiting analysis start." }];
@@ -109,7 +118,7 @@ function exportPdf(report: AnalysisReport) {
   pdf.save(`flowsense-${Date.now()}.pdf`);
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Inline styles Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* Inline styles */
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -168,10 +177,9 @@ const css = `
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
-
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Floating Nav Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* Floating Nav */
   .floating-nav {
-    position: fixed;
+     position: fixed;
     top: 16px;
     left: 50%;
     transform: translateX(-50%);
@@ -316,7 +324,7 @@ const css = `
     color: var(--accent-strong);
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Page shell Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* Page shell */
   .site-shell {
     min-height: 100vh;
     display: flex;
@@ -328,7 +336,7 @@ const css = `
     flex: 1;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Landing Hero Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* Landing Hero */
   .landing-page {
     padding-top: calc(var(--nav-height) + 88px);
   }
@@ -445,7 +453,7 @@ const css = `
     border-color: var(--accent);
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Stats Row Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* Stats Row */
   .stats-row {
     display: flex;
     align-items: center;
@@ -488,7 +496,7 @@ const css = `
     font-weight: 400;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Feature Cards Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* Feature Cards */
   .section-label {
     font-size: 11px;
     font-weight: 600;
@@ -553,7 +561,7 @@ const css = `
     font-weight: 400;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ How it works Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* How it works */
   .how-section {
     margin-bottom: 64px;
   }
@@ -605,7 +613,7 @@ const css = `
     font-weight: 400;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Terminal preview Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* Terminal preview */
   .terminal-section {
     background: linear-gradient(180deg, #2d5055 0%, #243f44 100%);
     border-radius: var(--radius-xl);
@@ -682,7 +690,7 @@ const css = `
 
   .provider-chip .led.on { background: var(--accent-green); }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Use cases Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* Use cases */
   .usecases-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -710,7 +718,6 @@ const css = `
     letter-spacing: 0.05em;
     text-transform: uppercase;
     padding: 4px 10px;
-    border-radius: var(--radius-sm);
     background: rgba(242, 212, 138, 0.24);
     color: var(--text-muted);
     margin-bottom: 12px;
@@ -732,14 +739,11 @@ const css = `
     font-weight: 400;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ CTA Banner Ã¢â€â‚¬Ã¢â€â‚¬ */
   .cta-banner {
     background: linear-gradient(135deg, rgba(186, 216, 236, 0.26), rgba(255, 253, 250, 0.95));
-    border-radius: var(--radius-xl);
     padding: 48px;
     text-align: center;
     margin-bottom: 64px;
-    border: 1px solid var(--border-strong);
   }
 
   .cta-banner h2 {
@@ -784,14 +788,14 @@ const css = `
     color: var(--accent-strong);
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Workspace Page Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* Workspace Page */
   .workspace-shell {
     max-width: 1100px;
     margin: 0 auto;
     padding: 32px 32px 80px;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ About Page Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* About Page */
   .about-page {
     max-width: 820px;
     margin: 0 auto;
@@ -835,7 +839,7 @@ const css = `
     margin-top: 48px;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Footer Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* Footer */
   .site-footer {
     background: linear-gradient(180deg, rgba(186, 216, 236, 0.16), rgba(245, 250, 248, 0.94));
     border-top: 1px solid var(--border-strong);
@@ -864,7 +868,7 @@ const css = `
     font-weight: 400;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Auth Modal Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* Auth Modal */
   .auth-overlay {
     position: fixed;
     inset: 0;
@@ -958,9 +962,7 @@ const css = `
     border: 1px solid var(--border-strong);
   }
   
-  .auth-card button.ghost:hover {
-    border-color: var(--accent);
-  }
+  
 
   .auth-card button.text-btn {
     background: transparent;
@@ -969,9 +971,7 @@ const css = `
     font-size: 13px;
   }
   
-  .auth-card button.text-btn:hover {
-    color: var(--text-primary);
-  }
+  
 
   .modal-backdrop {
     position: fixed;
@@ -1264,7 +1264,7 @@ export default function App() {
   const [compareResult, setCompareResult] = useState<CompareResponse | null>(null);
   const [history, setHistory] = useState<AnalysisReport[]>([]);
   const [providers, setProviders] = useState<ProviderStatus>(DEFAULT_PROVIDER_STATUS);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<FrontendUser | null>(null);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -1278,7 +1278,7 @@ export default function App() {
   const [profile, setProfile] = useState<WorkspaceProfile>(DEFAULT_PROFILE);
   const [profileSaving, setProfileSaving] = useState(false);
 
-  const userAvatarSeed = currentUser?.uid || currentUser?.email || profile.displayName || profile.email || "flowsense";
+  const userAvatarSeed = currentUser?.id || currentUser?.email || profile.displayName || profile.email || "flowsense";
   const userAvatarUrl = useMemo(() => getDiceBearAvatarUrl(userAvatarSeed), [userAvatarSeed]);
 
   const timersRef = useRef<number[]>([]);
@@ -1286,32 +1286,18 @@ export default function App() {
   const pushHistory = async (nextReport: AnalysisReport, execution?: { stages: ExecutionStage[]; timeline: AnalysisReport["journey"] }) => {
     setHistory((prev) => [nextReport, ...prev.filter((item) => item.id !== nextReport.id)].slice(0, 12));
 
-    if (!db || !currentUser) return;
-    const ref = doc(db, "users", currentUser.uid, "analyses", nextReport.id);
-    await setDoc(ref, {
-      ...nextReport,
-      agentName: profile.agentName || "FlowSense",
-      agentMode: profile.agentMode || nextReport.engineMode,
-      agentNotes: profile.agentNotes || "",
-      execution: execution || null,
-      createdAt: serverTimestamp(),
-    });
+    if (!currentUser) return;
+    await saveHistoryEntry({
+      report: {
+        ...nextReport,
+        providerUsed: nextReport.providerUsed || "heuristic",
+      },
+      execution,
+    }).catch(() => null);
   };
 
-  const loadProfile = async (user: User) => {
-    if (!db) {
-      setProfile({
-        ...DEFAULT_PROFILE,
-        displayName: user.displayName || "",
-        email: user.email || undefined,
-        photoURL: getDiceBearAvatarUrl(user.uid || user.email || user.displayName || "flowsense"),
-      });
-      return;
-    }
-
-    const profileRef = doc(db, "users", user.uid, "profile", "main");
-    const snap = await getDoc(profileRef);
-    const data = snap.exists() ? snap.data() : {};
+  const loadProfile = async (user: FrontendUser, forceOnboarding = false) => {
+    const data = await requestProfile();
     setProfile({
       displayName: String(data.displayName || user.displayName || ""),
       companyName: String(data.companyName || ""),
@@ -1326,10 +1312,38 @@ export default function App() {
       agentNotes: String(data.agentNotes || ""),
       bio: String(data.bio || ""),
       email: user.email || undefined,
-      photoURL: getDiceBearAvatarUrl(user.uid || user.email || user.displayName || data.displayName || "flowsense"),
+      photoURL: data.photoURL || getDiceBearAvatarUrl(user.id || user.email || user.displayName || data.displayName || "flowsense"),
     });
     const needsOnboarding = !data?.profileComplete;
-    setOnboardingOpen(needsOnboarding || authJustSignedUp);
+    setOnboardingOpen(needsOnboarding || forceOnboarding || authJustSignedUp);
+  };
+
+  const loadSessionState = async (forceOnboarding = false) => {
+    try {
+      const session = await requestSession();
+      if (!session.authenticated || !session.user) {
+        setCurrentUser(null);
+        setAuthResolved(true);
+        setAuthModalOpen(false);
+        setOnboardingOpen(false);
+        setAuthJustSignedUp(false);
+        setHistory([]);
+        setProfile(DEFAULT_PROFILE);
+        return;
+      }
+
+      setCurrentUser(session.user);
+      await loadProfile(session.user, forceOnboarding);
+      const cloudHistory = await requestHistory(12);
+      if (cloudHistory.length) {
+        setHistory(cloudHistory);
+      }
+      setAuthJustSignedUp(false);
+      setAuthResolved(true);
+    } catch {
+      setCurrentUser(null);
+      setAuthResolved(true);
+    }
   };
 
   // Scroll listener for compact navbar
@@ -1348,27 +1362,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!auth) return;
-    return onAuthStateChanged(auth, async (user) => {
-      setAuthResolved(true);
-      setCurrentUser(user);
-
-      if (!user) {
-        setAuthModalOpen(false);
-        setOnboardingOpen(false);
-        setAuthJustSignedUp(false);
-        return;
-      }
-
-      await loadProfile(user);
-      setAuthJustSignedUp(false);
-
-      if (!db) return;
-      const q = query(collection(db, "users", user.uid, "analyses"), orderBy("analyzedAt", "desc"), limit(12));
-      const snap = await getDocs(q);
-      const cloudHistory = snap.docs.map((docItem) => docItem.data() as AnalysisReport);
-      if (cloudHistory.length) setHistory(cloudHistory);
-    });
+    void loadSessionState();
   }, []);
 
   useEffect(() => {
@@ -1477,7 +1471,7 @@ export default function App() {
   };
 
   const handleSaveProfile = async () => {
-    if (!db || !currentUser) {
+    if (!currentUser) {
       setAuthModalOpen(true);
       navigate("/", { replace: true });
       return;
@@ -1485,7 +1479,6 @@ export default function App() {
 
     setProfileSaving(true);
     try {
-      const profileRef = doc(db, "users", currentUser.uid, "profile", "main");
       const nextProfile = {
         displayName: profile.displayName.trim(),
         companyName: profile.companyName.trim(),
@@ -1500,7 +1493,7 @@ export default function App() {
         agentNotes: profile.agentNotes.trim(),
         bio: profile.bio.trim(),
         email: currentUser.email || profile.email || undefined,
-        photoURL: getDiceBearAvatarUrl(currentUser.uid || currentUser.email || profile.displayName || profile.email || "flowsense"),
+        photoURL: getDiceBearAvatarUrl(currentUser.id || currentUser.email || profile.displayName || profile.email || "flowsense"),
         profileComplete: Boolean(
           profile.displayName.trim() &&
           profile.companyName.trim() &&
@@ -1508,14 +1501,13 @@ export default function App() {
           profile.productUrl.trim() &&
           profile.agentName.trim()
         ),
-        updatedAt: serverTimestamp(),
       };
 
-      await setDoc(profileRef, nextProfile, { merge: true });
+      await saveProfile(nextProfile);
       setProfile((prev) => ({
         ...prev,
         email: currentUser.email || prev.email,
-        photoURL: getDiceBearAvatarUrl(currentUser.uid || currentUser.email || prev.displayName || prev.email || "flowsense"),
+        photoURL: getDiceBearAvatarUrl(currentUser.id || currentUser.email || prev.displayName || prev.email || "flowsense"),
       }));
       setOnboardingOpen(false);
     } finally {
@@ -1524,20 +1516,17 @@ export default function App() {
   };
 
   const handleEmailAuth = async () => {
-    if (!auth) {
-      setAuthError("Authentication unavailable.");
-      return;
-    }
     setAuthLoading(true);
     setAuthError("");
 
     try {
       if (authMode === "signup") {
-        await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+        await requestSignUp({ email: authEmail, password: authPassword, displayName: authEmail.split("@")[0] });
         setAuthJustSignedUp(true);
       } else {
-        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+        await requestSignIn({ email: authEmail, password: authPassword });
       }
+      await loadSessionState(authMode === "signup");
       setAuthEmail("");
       setAuthPassword("");
       setAuthModalOpen(false);
@@ -1550,23 +1539,15 @@ export default function App() {
   };
 
   const handleGoogleAuth = async () => {
-    if (!auth) {
-      setAuthError("Authentication unavailable.");
-      return;
-    }
-    setAuthLoading(true);
-    setAuthError("");
+    setAuthError("Google sign-in is not enabled yet in backend auth.");
+  };
 
-    try {
-      await signInWithPopup(auth, googleProvider);
-      setAuthJustSignedUp(false);
-      setAuthModalOpen(false);
-      navigate("/workspace/dashboard");
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Google sign in failed.");
-    } finally {
-      setAuthLoading(false);
-    }
+  const handleSignOut = async () => {
+    await requestSignOut().catch(() => null);
+    setCurrentUser(null);
+    setHistory([]);
+    setProfile(DEFAULT_PROFILE);
+    navigate("/");
   };
 
   const currentSummary = useMemo(() => (report ? summaryText(report) : ""), [report]);
@@ -1604,14 +1585,14 @@ export default function App() {
             {!currentUser ? (
               <button onClick={() => setAuthModalOpen(true)}>Sign in</button>
             ) : (
-              <button onClick={() => signOut(auth!)}>Sign out</button>
+              <button onClick={() => void handleSignOut()}>Sign out</button>
             )}
           </div>
         </header>
       )}
 
       <Routes>
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ HOME Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* HOME */}
         <Route
           path="/"
           element={
@@ -1766,14 +1747,14 @@ export default function App() {
                     <span className="terminal-label">flowsense agent - live session</span>
                   </div>
 
-                  <div className="terminal-line"><span className="prompt">Ã¢â‚¬Âº</span><span className="cmd">Launching autonomous UX agent...</span></div>
-                  <div className="terminal-line"><span className="prompt">Ã¢â‚¬Âº</span><span className="out">Ã¢Å“â€œ Session initialized - device context loaded</span></div>
-                  <div className="terminal-line"><span className="prompt">Ã¢â‚¬Âº</span><span className="info">Scanning homepage hierarchy...</span></div>
-                  <div className="terminal-line"><span className="prompt">Ã¢â‚¬Âº</span><span className="cmd">Identifying primary CTA candidates...</span></div>
-                  <div className="terminal-line"><span className="prompt">Ã¢â‚¬Âº</span><span className="warn">Ã¢Å¡Â  Navigation priority dilution detected</span></div>
-                  <div className="terminal-line"><span className="prompt">Ã¢â‚¬Âº</span><span className="info">Traversing discovery Ã¢â€ â€™ conversion journey...</span></div>
-                  <div className="terminal-line"><span className="prompt">Ã¢â‚¬Âº</span><span className="out">Ã¢Å“â€œ 5 screens explored Ã‚Â· 8 frictions captured Ã‚Â· 87% confidence</span></div>
-                  <div className="terminal-line"><span className="prompt">Ã¢â‚¬Âº</span><span className="out">Ã¢Å“â€œ Report ready - 3 high-priority fixes Ã‚Â· PDF / JSON / TXT</span></div>
+                  <div className="terminal-line"><span className="prompt">&gt;</span><span className="cmd">Launching autonomous UX agent...</span></div>
+                  <div className="terminal-line"><span className="prompt">&gt;</span><span className="out">[ok] Session initialized - device context loaded</span></div>
+                  <div className="terminal-line"><span className="prompt">&gt;</span><span className="info">Scanning homepage hierarchy...</span></div>
+                  <div className="terminal-line"><span className="prompt">&gt;</span><span className="cmd">Identifying primary CTA candidates...</span></div>
+                  <div className="terminal-line"><span className="prompt">&gt;</span><span className="warn">[warn] Navigation priority dilution detected</span></div>
+                  <div className="terminal-line"><span className="prompt">&gt;</span><span className="info">Traversing discovery -&gt; conversion journey...</span></div>
+                  <div className="terminal-line"><span className="prompt">&gt;</span><span className="out">[ok] 5 screens explored | 8 frictions captured | 87% confidence</span></div>
+                  <div className="terminal-line"><span className="prompt">&gt;</span><span className="out">[ok] Report ready - 3 high-priority fixes | PDF / JSON / TXT</span></div>
 
                   <div className="provider-status-row">
                     <div className="provider-chip">
@@ -1786,7 +1767,7 @@ export default function App() {
                     </div>
                     <div className="provider-chip">
                       <span className="led on" />
-                      Heuristic engine always on
+                      Heuristic fallback active
                     </div>
                   </div>
                 </div>
@@ -1836,7 +1817,7 @@ export default function App() {
                     in under 60 seconds. No setup required.
                   </p>
                   <NavLink to="/workspace" className="btn-primary-light">
-                    Open workspace Ã¢â€ â€™
+                    Open workspace 
                   </NavLink>
                 </div>
 
@@ -1845,7 +1826,7 @@ export default function App() {
           }
         />
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ WORKSPACE Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* WORKSPACE */}
         <Route
           path="/workspace/*"
           element={
@@ -1881,7 +1862,7 @@ export default function App() {
                 currentSummary={currentSummary}
                 reportCount={history.length}
                 userEmail={currentUser?.email || undefined}
-                onSignOut={() => auth && signOut(auth).then(() => navigate("/"))}
+                onSignOut={() => void handleSignOut()}
                 onOpenAuth={() => setAuthModalOpen(true)}
                 logoSrc={logoSrc}
                 onCopySummary={() => navigator.clipboard.writeText(currentSummary)}
@@ -1910,7 +1891,7 @@ export default function App() {
           }
         />
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ DOCS Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* DOCS */}
         <Route
           path="/about"
           element={
@@ -1931,7 +1912,7 @@ export default function App() {
                 Every finding is paired with an implementation-ready prompt. The gap between
                 insight and fix is zero.
               </p>
-              <p className="built-by">Built by Hardik Gupta · 2026</p>
+              <p className="built-by">Built by Hardik Gupta &middot; 2026</p>
               </div>
             </section>
           }
@@ -1942,15 +1923,15 @@ export default function App() {
         <footer className="site-footer">
           <div>
             <strong>FlowSense.ai</strong>
-            <p>Autonomous UX intelligence for product teams. Catch friction before your users do.</p>
+            <p>Autonomous UX analysis for product teams. Evaluate journeys, surface friction, and ship better fixes.</p>
           </div>
           <div>
             <strong style={{ fontSize: 13, fontFamily: "var(--font-body)", fontWeight: 500 }}>Navigate</strong>
-            <p>Home · Workspace · About</p>
+            <p>Home &middot; Workspace &middot; About</p>
           </div>
           <div>
             <strong style={{ fontSize: 13, fontFamily: "var(--font-body)", fontWeight: 500 }}>Built by</strong>
-            <p>Hardik Gupta<br />© 2026 FlowSense.ai</p>
+            <p>Hardik Gupta<br />&copy; 2026 FlowSense.ai</p>
           </div>
         </footer>
       )}
@@ -1962,7 +1943,7 @@ export default function App() {
         password={authPassword}
         loading={authLoading}
         error={authError}
-        enabled={hasFirebaseConfig}
+        enabled
         onClose={() => {
           setAuthModalOpen(false);
           setAuthError("");
@@ -1979,7 +1960,7 @@ export default function App() {
         profile={profile}
         loading={profileSaving}
         error={authError}
-        enabled={hasFirebaseConfig}
+        enabled
         onClose={() => setOnboardingOpen(false)}
         onProfileChange={setProfile}
         onSubmit={handleSaveProfile}
@@ -1987,4 +1968,3 @@ export default function App() {
     </main>
   );
 }
-

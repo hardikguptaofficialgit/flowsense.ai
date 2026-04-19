@@ -9,7 +9,8 @@
     "dev:server": "node backend/server.js",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "start": "node backend/server.js"
+    "start": "node backend/server.js",
+    "verify:automation": "node scripts/verify-automation.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
@@ -27,6 +28,7 @@
     "firebase": "^12.12.0",
     "jspdf": "^4.2.1",
     "playwright": "^1.59.1",
+    "puppeteer": "^24.41.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.1"

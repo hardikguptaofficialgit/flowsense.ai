@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import type { AnalysisReport, CompareResponse, ExecutionStage, ProviderStatus, WorkspaceProfile } from "../types";
+import { FloatingChatbot } from "./workspace/FloatingChatbot";
 
 const PANEL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap');
@@ -1356,7 +1357,7 @@ function OverviewPanel({ history, loading, report, reportCount, providerStatus, 
             <h2>{reportCount}</h2>
             <span className="workspace-section-tag">Reports</span>
           </div>
-          <div className="overview-meta">Saved report history from Firebase analyses.</div>
+          <div className="overview-meta">Saved report history from backend session storage.</div>
         </div>
         <div className="profile-card">
           <div className="label-xs">Running</div>
@@ -1681,10 +1682,10 @@ export function WorkspacePage(props: WorkspacePageProps) {
 
         {routeSection === "reports" && (
           <>
-            <section id="workspace-reports" className="panel">
+            <section id="workspace-history" className="panel">
               <div className="label-xs">Reports / history</div>
               <div className="panel-title">Saved analyses</div>
-              <div className="panel-subtitle">Select any saved report from Firebase history to inspect details.</div>
+              <div className="panel-subtitle">Select any saved report from your backend history to inspect details.</div>
               {props.history.length ? (
                 <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
                   {props.history.map((entry) => (
@@ -1746,6 +1747,7 @@ export function WorkspacePage(props: WorkspacePageProps) {
           />
         )}
       </main>
+      <FloatingChatbot enabled={Boolean(props.userEmail)} />
     </section>
   );
 }

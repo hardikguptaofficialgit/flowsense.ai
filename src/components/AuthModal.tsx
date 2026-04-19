@@ -114,12 +114,21 @@ export function OnboardingModal(props: OnboardingModalProps) {
 
   if (!props.isOpen) return null;
 
-  const canContinue =
+  const canContinueStep1 = Boolean(
     props.profile.displayName.trim() &&
-    props.profile.companyName.trim() &&
+    props.profile.companyName.trim()
+  );
+
+  const canContinueStep2 = Boolean(
     props.profile.website.trim() &&
-    props.profile.productUrl.trim() &&
-    props.profile.agentName.trim();
+    props.profile.productUrl.trim()
+  );
+
+  const canComplete = Boolean(
+    canContinueStep1 &&
+    canContinueStep2 &&
+    props.profile.agentName.trim()
+  );
 
   const updateProfile = (patch: Partial<WorkspaceProfile>) => {
     props.onProfileChange({ ...props.profile, ...patch });
@@ -239,11 +248,14 @@ export function OnboardingModal(props: OnboardingModalProps) {
             Back
           </button>
           {step < 2 ? (
-            <button onClick={() => setStep((current) => current + 1)} disabled={!canContinue || props.loading}>
+            <button
+              onClick={() => setStep((current) => current + 1)}
+              disabled={!(step === 0 ? canContinueStep1 : canContinueStep2) || props.loading}
+            >
               Continue
             </button>
           ) : (
-            <button onClick={props.onSubmit} disabled={props.loading || !props.enabled || !canContinue}>
+            <button onClick={props.onSubmit} disabled={props.loading || !props.enabled || !canComplete}>
               {props.loading ? "Saving..." : "Complete onboarding"}
             </button>
           )}

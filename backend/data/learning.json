@@ -1,9 +1,9 @@
 {
   "example.com": {
-    "runCount": 2,
+    "runCount": 3,
     "avgScore": 72,
     "avgFriction": 3,
     "lastScore": 72,
-    "lastAnalyzedAt": "2026-04-19T22:00:40.655Z"
+    "lastAnalyzedAt": "2026-04-19T22:25:10.455Z"
   }
 }
