@@ -17,18 +17,16 @@ function normalizeApiBaseUrl(value?: string) {
 
 function resolveApiBaseUrl() {
   const configured = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_BACKEND_URL);
-  const productionDefault = "https://flow.linkitapp.in/api";
+  const mode = String(import.meta.env.VITE_NODE_ENV || import.meta.env.MODE || "").trim().toLowerCase();
+  const isDevelopment = mode === "development" || import.meta.env.DEV;
+  const productionDefault = "https://flowsenseai.linkitapp.in/api";
   const developmentDefault = "http://localhost:5000/api";
 
-  if (import.meta.env.PROD) {
-    if (!configured || configured === "/api" || configured === "http://localhost:5000/api" || configured === "http://127.0.0.1:5000/api") {
-      return productionDefault;
-    }
-
+  if (configured && configured !== "/api") {
     return configured;
   }
 
-  return configured || developmentDefault;
+  return isDevelopment ? developmentDefault : productionDefault;
 }
 
 const API_BASE_URL = resolveApiBaseUrl();

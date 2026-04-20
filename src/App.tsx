@@ -888,8 +888,6 @@ const css = `
 
   /* Footer - FIXED SYNTAX */
   .site-footer {
-    background: var(--surface-2);
-    border-top: 1px solid var(--border-strong);
     padding: 48px 40px 40px;
     display: grid;
     grid-template-columns: 2fr 1fr 1fr;
