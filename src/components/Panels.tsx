@@ -1176,6 +1176,51 @@ const PANEL_CSS = `
     .journey-step { grid-template-columns: 36px 1fr; }
     .journey-signal { text-align: left; grid-column: 2; }
   }
+
+  @media (max-width: 768px) {
+    .fs-main { padding: 14px 10px 24px; }
+    .fs-sidebar { width: 240px; }
+    .dashboard-overview-grid,
+    .workspace-overview-grid,
+    .counter-row,
+    .replay-metrics {
+      gap: 8px;
+    }
+    .url-input, .analyze-btn, .compare-url-input {
+      font-size: 13px;
+      padding: 0 12px;
+      height: 40px;
+    }
+    .hero-score { font-size: 42px; }
+    .workspace-title-row h2 { font-size: 18px; }
+  }
+
+  @media (max-width: 480px) {
+    .fs-layout { flex-direction: column; }
+    .fs-sidebar { display: none; }
+    .fs-main { padding: 10px 8px 20px; }
+    .dashboard-overview-grid,
+    .workspace-overview-grid,
+    .counter-row,
+    .replay-metrics {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+    .overview-value { font-size: 24px; }
+    .hero-score { font-size: 32px; }
+    .workspace-title-row h2 { font-size: 16px; }
+    .url-input, .analyze-btn, .compare-url-input {
+      font-size: 12px;
+      padding: 0 10px;
+      height: 36px;
+    }
+    .analyze-btn { padding: 0 16px; }
+    .dashboard-toolbar-actions { gap: 6px; }
+    .compare-score-value { font-size: 28px; }
+    .journey-step { grid-template-columns: 30px 1fr; }
+    .journey-step-num { font-size: 10px; padding: 2px 6px; }
+  }
+
 `;
 
 let cssInjected = false;

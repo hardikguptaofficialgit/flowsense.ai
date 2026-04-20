@@ -55,19 +55,32 @@ export async function signInWithGooglePopup() {
 		throw new Error("Firebase is not configured for Google sign-in.");
 	}
 
-	const result = await signInWithPopup(authInstance, googleProviderInstance);
-	const credential = GoogleAuthProvider.credentialFromResult(result);
-	const email = String(result.user.email || "").trim();
+	try {
+		const result = await signInWithPopup(authInstance, googleProviderInstance);
+		const credential = GoogleAuthProvider.credentialFromResult(result);
+		const email = String(result.user.email || "").trim();
 
-	if (!result.user.uid || !email) {
-		throw new Error("Google account is missing required profile details.");
+		if (!result.user.uid || !email) {
+			throw new Error("Google account is missing required profile details.");
+		}
+
+		return {
+			uid: result.user.uid,
+			email,
+			displayName: result.user.displayName || undefined,
+			photoURL: result.user.photoURL || undefined,
+			googleIdToken: credential?.idToken || undefined,
+		} as GooglePopupSignInResult;
+	} catch (error) {
+		// Safely handle popup closure and COOP errors
+		if (error instanceof Error) {
+			if (error.code === 'auth/popup-closed-by-user') {
+				throw new Error("Sign-in was cancelled.");
+			}
+			if (error.message?.includes('Cross-Origin')) {
+				console.warn("[COOP] Popup policy: This is normal and doesn't affect sign-in.");
+			}
+		}
+		throw error;
 	}
-
-	return {
-		uid: result.user.uid,
-		email,
-		displayName: result.user.displayName || undefined,
-		photoURL: result.user.photoURL || undefined,
-		googleIdToken: credential?.idToken || undefined,
-	} as GooglePopupSignInResult;
 }

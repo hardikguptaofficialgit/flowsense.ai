@@ -1117,7 +1117,183 @@ const css = `
   .text-button:hover {
     color: var(--accent);
   }
+
+  /* Enhanced Onboarding Modal */
+  .modal-card--onboarding {
+    max-width: 520px;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .onboarding-header {
+    background: linear-gradient(135deg, var(--pastel-mint) 0%, var(--pastel-sky) 100%);
+    padding: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .onboarding-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  .onboarding-title {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+
+  .onboarding-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 400;
+    margin: 0;
+  }
+
+  .onboarding-progress {
+    padding: 24px 32px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--border-strong);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .progress-steps {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .progress-step {
+    flex: 1;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 2px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+  }
+
+  .progress-step.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(91, 140, 133, 0.3);
+  }
+
+  .progress-step.completed {
+    background: var(--accent-green-bg);
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+  }
+
+  .onboarding-content {
+    padding: 32px;
+    min-height: 280px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .field-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+
+  .modal-actions--onboarding {
+    display: flex;
+    gap: 12px;
+    padding: 24px 32px;
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+    justify-content: space-between;
+  }
+
+  .modal-actions--onboarding button {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .modal-actions--onboarding .modal-primary-button {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .modal-actions--onboarding button:hover:not(:disabled) {
+    background: var(--surface-2);
+    transform: translateY(-1px);
+  }
+
+  .modal-actions--onboarding .modal-primary-button:hover:not(:disabled) {
+    background: var(--accent-strong);
+    color: #fff;
+  }
+
+  .modal-actions--onboarding button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 6px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
 `;
+
 
 export default function App() {
   const location = useLocation();

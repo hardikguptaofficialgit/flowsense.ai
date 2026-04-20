@@ -40,12 +40,53 @@ h1, h2, h3, h4, .hero-score {
 #app {
   width: min(1220px, 94vw);
   margin: 0 auto;
+  padding: 0 16px;
 }
 
 .site-shell {
   padding: 14px 0 26px;
   display: grid;
   gap: 16px;
+}
+
+/* Mobile responsive */
+@media (max-width: 1024px) {
+  #app {
+    width: 100%;
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  #app {
+    width: 100%;
+    padding: 0 12px;
+  }
+  
+  .site-shell {
+    padding: 12px 0 20px;
+    gap: 12px;
+  }
+  
+  body {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  #app {
+    padding: 0 10px;
+  }
+  
+  .site-shell {
+    padding: 10px 0 16px;
+    gap: 10px;
+  }
+  
+  body {
+    font-size: 13px;
+    line-height: 1.4;
+  }
 }
 
 .floating-nav {
@@ -62,6 +103,22 @@ h1, h2, h3, h4, .hero-score {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .floating-nav {
+    padding: 8px 10px;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .floating-nav {
+    grid-template-columns: 1fr auto;
+    padding: 8px 8px;
+    gap: 8px;
+  }
 }
 
 .brand-row { display: flex; align-items: center; gap: 10px; }
