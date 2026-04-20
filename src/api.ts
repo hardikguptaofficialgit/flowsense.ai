@@ -10,17 +10,18 @@ import type {
 } from "./types";
 
 function normalizeApiBaseUrl(value?: string) {
-  if (!value) return "/api";
-  return value.endsWith("/") ? value.slice(0, -1) : value;
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
 }
 
 function resolveApiBaseUrl() {
-  const configured = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+  const configured = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_BACKEND_URL);
   const productionDefault = "https://flow.linkitapp.in/api";
   const developmentDefault = "http://localhost:5000/api";
 
   if (import.meta.env.PROD) {
-    if (!configured || configured === "http://localhost:5000/api" || configured === "http://127.0.0.1:5000/api") {
+    if (!configured || configured === "/api" || configured === "http://localhost:5000/api" || configured === "http://127.0.0.1:5000/api") {
       return productionDefault;
     }
 
