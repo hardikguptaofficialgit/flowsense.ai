@@ -1145,6 +1145,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingShown, setOnboardingShown] = useState(false);
   const [authJustSignedUp, setAuthJustSignedUp] = useState(false);
   const [authResolved, setAuthResolved] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -1190,7 +1191,10 @@ export default function App() {
       photoURL: data.photoURL || getDiceBearAvatarUrl(user.id || user.email || user.displayName || data.displayName || "flowsense"),
     });
     const needsOnboarding = !data?.profileComplete;
-    setOnboardingOpen(needsOnboarding || forceOnboarding || authJustSignedUp);
+    if ((needsOnboarding || forceOnboarding) && !onboardingShown) {
+      setOnboardingOpen(true);
+      setOnboardingShown(true);
+    }
   };
 
   const loadSessionState = async (forceOnboarding = false) => {
@@ -1201,6 +1205,7 @@ export default function App() {
         setAuthResolved(true);
         setAuthModalOpen(false);
         setOnboardingOpen(false);
+        setOnboardingShown(false);
         setAuthJustSignedUp(false);
         setHistory([]);
         setProfile(DEFAULT_PROFILE);
@@ -1208,7 +1213,7 @@ export default function App() {
       }
 
       setCurrentUser(session.user);
-      await loadProfile(session.user, forceOnboarding);
+      await loadProfile(session.user, forceOnboarding || authJustSignedUp);
       const cloudHistory = await requestHistory(12);
       if (cloudHistory.length) {
         setHistory(cloudHistory);
