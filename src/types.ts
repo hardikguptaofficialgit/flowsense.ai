@@ -25,6 +25,8 @@ export interface JourneyStep {
   screen: string;
   intent: string;
   signal: string;
+  phase?: string;
+  focus?: string;
 }
 
 export interface AnalysisAction {
@@ -76,6 +78,21 @@ export interface AnalysisReport {
 export interface ExecutionStage {
   label: string;
   detail: string;
+  kind?: "boot" | "setup" | "scan" | "inspect" | "navigate" | "evaluate" | "report";
+  screen?: string;
+  state?: string;
+}
+
+export interface BrowserProbeStatus {
+  installed: boolean;
+  available: boolean;
+  error: string | null;
+}
+
+export interface BrowserDiagnostics {
+  checkedAt: string | null;
+  playwright: BrowserProbeStatus;
+  puppeteer: BrowserProbeStatus;
 }
 
 export interface AnalyzeResponse {
@@ -109,6 +126,7 @@ export interface ConfigResponse {
     messagingSenderId: string;
     appId: string;
   };
+  automation?: BrowserDiagnostics;
   continuousHooks: {
     deployment: string;
     pullRequest: string;
@@ -157,10 +175,15 @@ export interface ChatMessage {
   text: string;
   agentId: string;
   createdAt: string;
+  provider?: string;
+  attemptedProviders?: string[];
+  fallbackUsed?: boolean;
 }
 
 export interface ChatMessageResponse {
   provider: string;
   agentId: string;
   answer: string;
+  attemptedProviders?: string[];
+  fallbackUsed?: boolean;
 }

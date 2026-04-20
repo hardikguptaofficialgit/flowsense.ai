@@ -21,6 +21,7 @@ import { WorkspacePage } from "./components/Panels";
 import { AuthModal, OnboardingModal } from "./components/AuthModal";
 import type {
   AnalysisReport,
+  BrowserDiagnostics,
   CompareResponse,
   ExecutionStage,
   FrontendUser,
@@ -137,8 +138,8 @@ const css = `
     --border: rgba(48, 94, 100, 0.06);
     --border-strong: rgba(48, 94, 100, 0.12);
     --text-primary: #24353a;
-    --text-secondary: #55686d;
-    --text-muted: #7d9195;
+    --text-secondary: #3f5358;
+    --text-muted: #5d7076;
     --accent: #3a6d74;
     --accent-strong: #2a5257;
     --accent-green: #90b89d;
@@ -1313,6 +1314,7 @@ export default function App() {
   const [compareResult, setCompareResult] = useState<CompareResponse | null>(null);
   const [history, setHistory] = useState<AnalysisReport[]>([]);
   const [providers, setProviders] = useState<ProviderStatus>(DEFAULT_PROVIDER_STATUS);
+  const [automation, setAutomation] = useState<BrowserDiagnostics | null>(null);
   const [currentUser, setCurrentUser] = useState<FrontendUser | null>(null);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [authEmail, setAuthEmail] = useState("");
@@ -1407,15 +1409,17 @@ export default function App() {
   useEffect(() => () => timersRef.current.forEach((id) => window.clearTimeout(id)), []);
 
   useEffect(() => {
-    requestConfig()
+    requestConfig(import.meta.env.DEV)
       .then((config) => {
         setProviders(config.providers);
         setFirebaseReady(configureFirebase(config.firebaseWebConfig));
+        setAutomation(config.automation || null);
         setConfigLoaded(true);
       })
       .catch(() => {
         setProviders(DEFAULT_PROVIDER_STATUS);
         setFirebaseReady(false);
+        setAutomation(null);
         setConfigLoaded(true);
       });
   }, []);
@@ -1977,6 +1981,7 @@ export default function App() {
                 }
                 onCopyFixPrompt={(prompt: string) => navigator.clipboard.writeText(prompt)}
                 providerStatus={providers}
+                automation={automation}
                 profile={profile}
                 onProfileChange={setProfile}
                 onSaveProfile={handleSaveProfile}

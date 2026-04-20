@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import type { AnalysisReport, CompareResponse, ExecutionStage, ProviderStatus, WorkspaceProfile } from "../types";
+import type { AnalysisReport, BrowserDiagnostics, CompareResponse, ExecutionStage, ProviderStatus, WorkspaceProfile } from "../types";
 import { FloatingChatbot } from "./workspace/FloatingChatbot";
 
 const PANEL_CSS = `
@@ -14,8 +14,8 @@ const PANEL_CSS = `
     --fs-surface-soft: #eef5f1;
     --fs-border: rgba(36, 75, 80, 0.10);
     --fs-border-strong: rgba(36, 75, 80, 0.18);
-    --fs-ink: #223438;
-    --fs-muted: #64767a;
+    --fs-ink: #1e2f34;
+    --fs-muted: #4d6166;
     --fs-brand: #305e64;
     --fs-brand-soft: rgba(184, 221, 194, 0.42);
     --fs-shell: #f5faf8;
@@ -561,6 +561,41 @@ const PANEL_CSS = `
   .btn-danger { background: #f9ecea; border-color: rgba(192,57,43,0.2); color: var(--fs-danger); }
   .btn-active { background: #e8f2f4; border-color: rgba(36,91,102,0.35); }
 
+  /* Override global app button styles so workspace neutral buttons never render white text on white backgrounds. */
+  .panel button.btn:not(.btn-solid):not(.btn-danger):not(.btn-active),
+  .settings-card button.btn:not(.btn-solid):not(.btn-danger):not(.btn-active),
+  .workspace-overview-card button.btn:not(.btn-solid):not(.btn-danger):not(.btn-active),
+  .profile-card button.btn:not(.btn-solid):not(.btn-danger):not(.btn-active) {
+    background: var(--fs-surface);
+    color: var(--fs-ink);
+    border-color: var(--fs-border-strong);
+  }
+
+  .panel button.btn:not(.btn-solid):not(.btn-danger):not(.btn-active):hover,
+  .settings-card button.btn:not(.btn-solid):not(.btn-danger):not(.btn-active):hover,
+  .workspace-overview-card button.btn:not(.btn-solid):not(.btn-danger):not(.btn-active):hover,
+  .profile-card button.btn:not(.btn-solid):not(.btn-danger):not(.btn-active):hover {
+    background: var(--fs-surface-soft);
+  }
+
+  .history-pill-btn {
+    border: 1px solid var(--fs-border);
+    background: var(--fs-surface-soft);
+    border-radius: 9999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--fs-ink);
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .history-entry-btn {
+    text-align: left;
+    border-radius: 12px;
+    background: var(--fs-surface);
+    color: var(--fs-ink);
+  }
+
   /* ── Dashboard toolbar ── */
   .dashboard-toolbar {
     display: flex;
@@ -764,13 +799,278 @@ const PANEL_CSS = `
   .terminal-entry { border-bottom: 1px solid var(--fs-border); padding-bottom: 10px; margin-bottom: 10px; }
   .terminal-entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
   .log-label { font-family: 'Consolas','Courier New',monospace; font-size: 12px; font-weight: 700; }
-  .log-detail { font-family: 'Consolas','Courier New',monospace; color: var(--fs-muted); font-size: 12px; margin-top: 2px; line-height: 1.45; }
+  .log-detail { font-family: 'Consolas','Courier New',monospace; color: #3f5358; font-size: 12px; margin-top: 2px; line-height: 1.45; }
+
+  .replay-shell {
+    border: 1px solid var(--fs-border);
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(238,245,241,0.96));
+    box-shadow: 0 18px 42px rgba(36, 75, 80, 0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .replay-shell.compact {
+    margin-bottom: 12px;
+  }
+
+  .replay-chrome {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--fs-border);
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(14px);
+  }
+
+  .replay-dots {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .replay-dots span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(36, 75, 80, 0.18);
+  }
+
+  .replay-urlbar {
+    flex: 1;
+    min-width: 0;
+    border-radius: 9999px;
+    border: 1px solid var(--fs-border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(238,245,241,0.92));
+    padding: 8px 14px;
+    font-size: 12px;
+    color: var(--fs-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .replay-chip {
+    border-radius: 9999px;
+    border: 1px solid var(--fs-border);
+    background: rgba(184, 221, 194, 0.28);
+    color: var(--fs-brand);
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .replay-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .replay-viewport {
+    border-radius: 20px;
+    border: 1px solid rgba(36, 75, 80, 0.10);
+    background:
+      radial-gradient(circle at top right, rgba(186, 216, 236, 0.20), transparent 30%),
+      linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,251,249,0.96));
+    padding: 14px;
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+
+  .replay-viewport-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .replay-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--fs-muted);
+    margin-bottom: 4px;
+  }
+
+  .replay-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+
+  .replay-copy {
+    color: #3d4f54;
+    font-size: 13px;
+    line-height: 1.55;
+    margin-top: 6px;
+    max-width: 46ch;
+  }
+
+  .replay-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .replay-metric {
+    border: 1px solid var(--fs-border);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.84);
+    padding: 10px;
+  }
+
+  .replay-metric-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fs-muted);
+  }
+
+  .replay-metric-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    margin-top: 4px;
+  }
+
+  .replay-rail {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+  }
+
+  .replay-step {
+    border: 1px solid var(--fs-border);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.84);
+    padding: 10px 12px;
+    box-shadow: 0 6px 18px rgba(36, 75, 80, 0.04);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .replay-step.active {
+    border-color: rgba(48, 94, 100, 0.26);
+    box-shadow: 0 10px 24px rgba(36, 75, 80, 0.10);
+    transform: translateY(-1px);
+  }
+
+  .replay-step-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .replay-step-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--fs-brand);
+    background: rgba(184, 221, 194, 0.34);
+    border-radius: 9999px;
+    padding: 4px 8px;
+  }
+
+  .replay-step-phase {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fs-muted);
+  }
+
+  .replay-step-title {
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .replay-step-meta {
+    color: #3f5358;
+    font-size: 12px;
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+
+  .replay-footer {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .replay-footer-card {
+    border: 1px solid var(--fs-border);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.82);
+    padding: 10px 12px;
+  }
+
+  .replay-footer-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fs-muted);
+  }
+
+  .replay-footer-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    margin-top: 4px;
+  }
+
+  .diagnostics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .diagnostic-card {
+    border: 1px solid var(--fs-border);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.84);
+    padding: 10px 12px;
+  }
+
+  .diagnostic-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fs-muted);
+  }
+
+  .diagnostic-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    margin-top: 4px;
+  }
+
+  .diagnostic-detail {
+    color: #3f5358;
+    font-size: 12px;
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+
+  .probe-ok { color: #3f6954; }
+  .probe-warn { color: #a15f15; }
+  .probe-fail { color: #b95b5b; }
 
   /* ── Results ── */
   .results-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
-  .score-domain { color: var(--fs-muted); font-size: 12px; }
+  .score-domain { color: #4d6166; font-size: 12px; }
   .hero-score { font-family: 'Syne', sans-serif; font-size: 68px; font-weight: 800; line-height: 1; letter-spacing: -0.05em; }
-  .score-label { color: var(--fs-muted); font-size: 12px; }
+  .score-label { color: #4d6166; font-size: 12px; }
 
   .export-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 
@@ -778,18 +1078,18 @@ const PANEL_CSS = `
 
   .metrics-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-bottom: 10px; }
   .metric-cell { border: 1px solid var(--fs-border); border-radius: 12px; background: var(--fs-surface); padding: 10px; }
-  .metric-label { color: var(--fs-muted); font-size: 11px; }
+  .metric-label { color: #4d6166; font-size: 11px; }
   .metric-value { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; margin-top: 2px; }
 
   .results-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
 
   .section-heading { display: flex; align-items: center; gap: 8px; font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 10px; }
-  .section-count { border: 1px solid var(--fs-border); border-radius: 9999px; padding: 2px 8px; font-size: 11px; color: var(--fs-muted); background: var(--fs-surface-soft); }
+  .section-count { border: 1px solid var(--fs-border); border-radius: 9999px; padding: 2px 8px; font-size: 11px; color: #4d6166; background: var(--fs-surface-soft); }
 
   .issue-card, .suggestion-card, .ai-action-card { border: 1px solid var(--fs-border); border-radius: 12px; padding: 12px; background: var(--fs-surface); margin-bottom: 8px; }
   .issue-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
   .issue-title, .suggestion-title, .ai-action-title { font-weight: 700; font-size: 14px; }
-  .issue-explanation, .issue-impact, .suggestion-action, .ai-action-why, .journey-intent, .journey-signal, .ai-providers, .ai-summary-text { color: var(--fs-muted); font-size: 13px; line-height: 1.55; }
+  .issue-explanation, .issue-impact, .suggestion-action, .ai-action-why, .journey-intent, .journey-signal, .ai-providers, .ai-summary-text { color: #3f5358; font-size: 13px; line-height: 1.55; }
 
   .severity-badge, .priority-badge, .ai-action-number { border-radius: 9999px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border: 1px solid var(--fs-border); background: var(--fs-surface-soft); }
   .severity-badge.high, .severity-badge.critical { background: #f8e1dd; color: #b95b5b; }
@@ -1065,8 +1365,8 @@ export function InputPanel({ url, onUrlChange, onAnalyze, loading, history, onLo
           {history.slice(0, 6).map((r) => (
             <button
               key={r.id}
+              className="history-pill-btn"
               onClick={() => onLoadHistory(r)}
-              style={{ border: "1px solid var(--fs-border)", background: "var(--fs-surface-soft)", borderRadius: 9999, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}
             >
               {new URL(r.url).hostname}
             </button>
@@ -1131,6 +1431,131 @@ export function ComparePanel({ leftUrl, rightUrl, onLeftChange, onRightChange, o
   );
 }
 
+interface JourneyReplayProps {
+  report: AnalysisReport;
+  stageIndex: number;
+  compact?: boolean;
+}
+
+function JourneyReplay({ report, stageIndex, compact = false }: JourneyReplayProps) {
+  const journey = report.journey || [];
+  const activeIndex = journey.length ? Math.max(0, Math.min(stageIndex - 1, journey.length - 1)) : 0;
+  const activeStep = journey[activeIndex] || journey[0] || null;
+  const progress = journey.length ? Math.round((Math.min(Math.max(stageIndex, 1), journey.length) / journey.length) * 100) : 0;
+  const hostname = new URL(report.url).hostname;
+
+  return (
+    <div className={`replay-shell ${compact ? "compact" : ""}`}>
+      <div className="replay-chrome">
+        <div className="replay-dots" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="replay-urlbar">{report.url}</div>
+        <div className="replay-chip">{report.engineMode || "browser replay"}</div>
+      </div>
+
+      <div className="replay-grid">
+        <div className="replay-viewport">
+          <div className="replay-viewport-head">
+            <div>
+              <div className="replay-kicker">{hostname}</div>
+              <div className="replay-title">{report.pageTitle}</div>
+              <div className="replay-copy">
+                {activeStep
+                  ? `${activeStep.action} while checking ${activeStep.focus || "the current surface"}. ${activeStep.intent}`
+                  : "The autonomous agent is preparing the first browser interaction."}
+              </div>
+            </div>
+            <div className="replay-chip">{progress}% complete</div>
+          </div>
+
+          <div className="replay-metrics">
+            <div className="replay-metric">
+              <div className="replay-metric-label">Screens</div>
+              <div className="replay-metric-value">{report.screensVisited}</div>
+            </div>
+            <div className="replay-metric">
+              <div className="replay-metric-label">Friction</div>
+              <div className="replay-metric-value">{report.frictionPoints}</div>
+            </div>
+            <div className="replay-metric">
+              <div className="replay-metric-label">Confidence</div>
+              <div className="replay-metric-value">{report.confidenceScore}%</div>
+            </div>
+          </div>
+
+          <div className="replay-footer">
+            <div className="replay-footer-card">
+              <div className="replay-footer-label">Current phase</div>
+              <div className="replay-footer-value">{activeStep?.phase || "boot"}</div>
+            </div>
+            <div className="replay-footer-card">
+              <div className="replay-footer-label">Focus</div>
+              <div className="replay-footer-value">{activeStep?.focus || "navigation"}</div>
+            </div>
+            <div className="replay-footer-card">
+              <div className="replay-footer-label">Engine</div>
+              <div className="replay-footer-value">{report.engineMode || "simulated"}</div>
+            </div>
+            <div className="replay-footer-card">
+              <div className="replay-footer-label">Model</div>
+              <div className="replay-footer-value">{report.providerUsed || "heuristic"}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="replay-rail">
+          {journey.map((step, index) => {
+            const isActive = index === activeIndex;
+            return (
+              <div key={`${step.step}-${step.screen}`} className={`replay-step ${isActive ? "active" : ""}`}>
+                <div className="replay-step-top">
+                  <div className="replay-step-num">{String(step.step).padStart(2, "0")}</div>
+                  <div className="replay-step-phase">{step.phase || `step ${step.step}`}</div>
+                </div>
+                <div className="replay-step-title">{step.action}</div>
+                <div className="replay-step-meta">{step.screen}</div>
+                <div className="replay-step-meta">{step.intent}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BackendDiagnosticsCard({ automation }: { automation?: BrowserDiagnostics | null }) {
+  if (!automation) return null;
+
+  const probeState = (status: BrowserDiagnostics["playwright"] | BrowserDiagnostics["puppeteer"]) => {
+    if (!status.available) return status.installed ? "probe-warn" : "probe-fail";
+    return "probe-ok";
+  };
+
+  return (
+    <div className="diagnostics-grid">
+      <div className="diagnostic-card">
+        <div className="diagnostic-label">Playwright</div>
+        <div className={`diagnostic-value ${probeState(automation.playwright)}`}>{automation.playwright.available ? "Ready" : "Unavailable"}</div>
+        <div className="diagnostic-detail">{automation.playwright.error || "Browser probe completed successfully."}</div>
+      </div>
+      <div className="diagnostic-card">
+        <div className="diagnostic-label">Puppeteer</div>
+        <div className={`diagnostic-value ${probeState(automation.puppeteer)}`}>{automation.puppeteer.available ? "Ready" : "Unavailable"}</div>
+        <div className="diagnostic-detail">{automation.puppeteer.error || "Fallback probe completed successfully."}</div>
+      </div>
+      <div className="diagnostic-card">
+        <div className="diagnostic-label">Checked at</div>
+        <div className="diagnostic-value">{automation.checkedAt ? new Date(automation.checkedAt).toLocaleTimeString() : "Pending"}</div>
+        <div className="diagnostic-detail">Backend browser diagnostics are cached on startup and exposed through the runtime config.</div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────────────────────
    Live Panel
 ───────────────────────────────────────── */
@@ -1138,10 +1563,13 @@ interface LivePanelProps {
   logs: ExecutionStage[];
   stageIndex: number;
   counters: { screens: number; frictions: number; confidence: number };
+  report: AnalysisReport | null;
+  automation?: BrowserDiagnostics | null;
 }
 
-export function LivePanel({ logs, stageIndex, counters }: LivePanelProps) {
+export function LivePanel({ logs, stageIndex, counters, report, automation }: LivePanelProps) {
   injectCss();
+  const stageTotal = Math.max(logs.length, report?.journey.length || 0, 1);
   return (
     <div id="workspace-live" className="panel">
       <div className="live-panel-head">
@@ -1149,8 +1577,10 @@ export function LivePanel({ logs, stageIndex, counters }: LivePanelProps) {
           <div className="label-xs">Agent runtime</div>
           <div className="panel-title">Live execution log</div>
         </div>
-        <span className="stage-badge">Stage {Math.max(stageIndex, 0)} / 7</span>
+        <span className="stage-badge">Stage {Math.min(Math.max(stageIndex, 0), stageTotal)} / {stageTotal}</span>
       </div>
+
+      {report && <JourneyReplay report={report} stageIndex={stageIndex} />}
 
       <div className="counter-row">
         <div className="counter-card">
@@ -1170,11 +1600,18 @@ export function LivePanel({ logs, stageIndex, counters }: LivePanelProps) {
       <div className="terminal">
         {logs.map((entry, i) => (
           <div key={`${entry.label}-${i}`} className="terminal-entry">
-            <div className="log-label">{entry.label}</div>
+            <div className="log-label">
+              {entry.label}
+              {entry.kind ? <span className="stage-badge" style={{ marginLeft: 8 }}>{entry.kind}</span> : null}
+            </div>
             <div className="log-detail">{entry.detail}</div>
+            {entry.screen ? <div className="log-detail">Screen: {entry.screen}</div> : null}
+            {entry.state ? <div className="log-detail">State: {entry.state}</div> : null}
           </div>
         ))}
       </div>
+
+      <BackendDiagnosticsCard automation={automation} />
     </div>
   );
 }
@@ -1265,18 +1702,7 @@ export function ResultsPanel({ report, onCopy, onExportText, onExportJson, onExp
 
       <div>
         <div className="section-heading">Session replay <span className="section-count">{report.journey.length} steps</span></div>
-        <div className="timeline">
-          {report.journey.map((step) => (
-            <div key={`${step.step}-${step.screen}`} className="journey-step">
-              <div className="journey-step-num">{String(step.step).padStart(2, "0")}</div>
-              <div>
-                <div className="journey-action">{step.action}</div>
-                <div className="journey-intent">{step.intent}</div>
-              </div>
-              <div className="journey-signal">{step.signal}</div>
-            </div>
-          ))}
-        </div>
+        <JourneyReplay report={report} stageIndex={report.journey.length} compact />
       </div>
 
       {report.aiSummary && (
@@ -1577,6 +2003,7 @@ interface WorkspacePageProps {
   onExportJson: () => void;
   onCopyFixPrompt: (prompt: string) => void;
   providerStatus: ProviderStatus;
+  automation?: BrowserDiagnostics | null;
   profile: WorkspaceProfile;
   onProfileChange: (profile: WorkspaceProfile) => void;
   onSaveProfile: () => void;
@@ -1676,7 +2103,7 @@ export function WorkspacePage(props: WorkspacePageProps) {
                 result={props.compareResult}
               />
             )}
-            <LivePanel logs={props.logs} stageIndex={props.stageIndex} counters={props.counters} />
+            <LivePanel logs={props.logs} stageIndex={props.stageIndex} counters={props.counters} report={props.report} automation={props.automation} />
           </>
         )}
 
@@ -1691,8 +2118,7 @@ export function WorkspacePage(props: WorkspacePageProps) {
                   {props.history.map((entry) => (
                     <button
                       key={entry.id}
-                      className="btn"
-                      style={{ textAlign: "left", borderRadius: 12, background: "#fff" }}
+                      className="btn history-entry-btn"
                       onClick={() => props.onLoadHistory(entry)}
                     >
                       {new URL(entry.url).hostname} · UX {entry.uxScore} · {new Date(entry.analyzedAt).toLocaleString()}
@@ -1723,7 +2149,7 @@ export function WorkspacePage(props: WorkspacePageProps) {
               <div className="panel-title">Execution monitor</div>
               <div className="panel-subtitle">Track active audit progress and execution status in real time.</div>
             </section>
-            <LivePanel logs={props.logs} stageIndex={props.stageIndex} counters={props.counters} />
+            <LivePanel logs={props.logs} stageIndex={props.stageIndex} counters={props.counters} report={props.report} automation={props.automation} />
           </>
         )}
 

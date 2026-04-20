@@ -137,3 +137,7 @@ coverage.html
 .parcel-cache/
 dist/
 out/
+.env
+.env
+.env
+backend/.env

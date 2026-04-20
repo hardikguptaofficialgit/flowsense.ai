@@ -14,7 +14,23 @@ function normalizeApiBaseUrl(value?: string) {
   return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
-const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+function resolveApiBaseUrl() {
+  const configured = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+  const productionDefault = "https://flow.linkitapp.in/api";
+  const developmentDefault = "http://localhost:5000/api";
+
+  if (import.meta.env.PROD) {
+    if (!configured || configured === "http://localhost:5000/api" || configured === "http://127.0.0.1:5000/api") {
+      return productionDefault;
+    }
+
+    return configured;
+  }
+
+  return configured || developmentDefault;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 async function parseResponse<T>(response: Response): Promise<T> {
   const payload = await response.json();
@@ -46,8 +62,8 @@ export async function requestComparison(leftUrl: string, rightUrl: string): Prom
   return parseResponse<CompareResponse>(response);
 }
 
-export async function requestConfig(): Promise<ConfigResponse> {
-  const response = await fetch(`${API_BASE_URL}/config`, { credentials: "include" });
+export async function requestConfig(debug = false): Promise<ConfigResponse> {
+  const response = await fetch(`${API_BASE_URL}/config${debug ? "?debug=1" : ""}`, { credentials: "include" });
   return parseResponse<ConfigResponse>(response);
 }
 
@@ -142,7 +158,7 @@ export async function saveHistoryEntry(payload: {
   return parseResponse<{ entry: AnalysisReport }>(response);
 }
 
-export async function requestChatAgents(): Promise<{ agents: ChatAgent[] }> {
+export async function requestChatAgents(): Promise<{ agents: ChatAgent[]; providers?: { nvidia: boolean; groq: boolean } }> {
   const response = await fetch(`${API_BASE_URL}/chat/agents`, { credentials: "include" });
   return parseResponse<{ agents: ChatAgent[] }>(response);
 }
