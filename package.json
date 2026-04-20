@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm:dev:client\" \"npm:dev:server\"",
+    "dev": "vite",
+    "dev:full": "concurrently \"npm:dev:client\" \"npm:dev:server\"",
     "dev:client": "vite",
     "dev:server": "node backend/server.js",
     "build": "tsc && vite build",
@@ -26,6 +27,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase": "^12.12.0",
+    "firebase-admin": "^13.8.0",
     "jspdf": "^4.2.1",
     "playwright": "^1.59.1",
     "puppeteer": "^24.41.0",

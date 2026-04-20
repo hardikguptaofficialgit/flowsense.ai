@@ -6,6 +6,7 @@ import {
   requestAnalysis,
   requestComparison,
   requestConfig,
+  requestGoogleAuth,
   requestHistory,
   requestProfile,
   requestSession,
@@ -27,6 +28,7 @@ import type {
   WorkspaceProfile,
 } from "./types";
 import { getDiceBearAvatarUrl } from "./utils/avatar";
+import { configureFirebase, hasFirebaseConfig, signInWithGooglePopup } from "./lib/firebase";
 
 const DEFAULT_LOGS: ExecutionStage[] = [{ label: "Launching agent...", detail: "Awaiting analysis start." }];
 const DEFAULT_PROVIDER_STATUS: ProviderStatus = { nvidia: false, groq: false };
@@ -125,42 +127,42 @@ const css = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --pastel-mint: #B8DDC2;
-    --pastel-sky: #BAD8EC;
-    --pastel-gold: #F2D48A;
-    --bg: #f5faf8;
-    --surface: #fffdfa;
-    --surface-2: #eef5f1;
-    --surface-3: #fbf3d7;
-    --border: rgba(48, 94, 100, 0.10);
-    --border-strong: rgba(48, 94, 100, 0.18);
+    --pastel-mint: #d2e8d9;
+    --pastel-sky: #d5e6f3;
+    --pastel-gold: #f6e8c4;
+    --bg: #f8fbfb;
+    --surface: #ffffff;
+    --surface-2: #f4f8f6;
+    --surface-3: #fcf9ee;
+    --border: rgba(48, 94, 100, 0.06);
+    --border-strong: rgba(48, 94, 100, 0.12);
     --text-primary: #24353a;
     --text-secondary: #55686d;
     --text-muted: #7d9195;
-    --accent: #305e64;
-    --accent-strong: #244b50;
-    --accent-green: #84ad90;
+    --accent: #3a6d74;
+    --accent-strong: #2a5257;
+    --accent-green: #90b89d;
     --accent-green-bg: var(--pastel-mint);
-    --accent-amber: #b89139;
+    --accent-amber: #c49d47;
     --accent-amber-bg: var(--pastel-gold);
-    --accent-red: #d97d7d;
-    --accent-red-bg: #f8e1dd;
-    --accent-blue: #7099b4;
+    --accent-red: #e08b8b;
+    --accent-red-bg: #fcebeb;
+    --accent-blue: #84a9c4;
     --accent-blue-bg: var(--pastel-sky);
     
     --font-display: 'Syne', sans-serif;
     --font-body: 'DM Sans', sans-serif;
-    --radius-sm: 12px;
-    --radius-md: 16px;
-    --radius-lg: 20px;
-    --radius-xl: 28px;
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
     
-    --nav-height: 72px;
-    --nav-height-compact: 56px;
+    --nav-height: 64px;
+    --nav-height-compact: 52px;
     
-    --shadow-card: 0 8px 30px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.01);
-    --shadow-nav: 0 4px 30px rgba(0,0,0,0.04);
-    --shadow-nav-compact: 0 10px 40px rgba(0,0,0,0.06);
+    --shadow-card: 0 8px 24px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.01);
+    --shadow-nav: 0 4px 24px rgba(0,0,0,0.03);
+    --shadow-nav-compact: 0 10px 32px rgba(0,0,0,0.04);
   }
 
   html { scroll-behavior: smooth; }
@@ -168,15 +170,16 @@ const css = `
   body {
     font-family: var(--font-body);
     background:
-      radial-gradient(circle at top left, rgba(184, 221, 194, 0.34), transparent 28%),
-      radial-gradient(circle at top right, rgba(186, 216, 236, 0.30), transparent 30%),
-      linear-gradient(180deg, #fbfdfc 0%, var(--bg) 100%);
+      radial-gradient(circle at top left, rgba(210, 232, 217, 0.4), transparent 28%),
+      radial-gradient(circle at top right, rgba(213, 230, 243, 0.35), transparent 30%),
+      linear-gradient(180deg, #fdfefe 0%, var(--bg) 100%);
     color: var(--text-primary);
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.6;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
+  
   /* Floating Nav */
   .floating-nav {
      position: fixed;
@@ -184,13 +187,13 @@ const css = `
     left: 50%;
     transform: translateX(-50%);
     width: calc(100% - 32px);
-    max-width: 1100px;
+    max-width: 1060px;
     height: var(--nav-height);
-    background: rgba(255,253,250,0.88);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-    border: 1px solid rgba(186, 216, 236, 0.8);
-    border-radius: 20px;
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid rgba(213, 230, 243, 0.6);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-nav);
     display: flex;
     align-items: center;
@@ -203,9 +206,9 @@ const css = `
   /* Compact state triggered by scroll */
   .floating-nav.scrolled {
     height: var(--nav-height-compact);
-    max-width: 800px;
+    max-width: 760px;
     padding: 0 12px 0 20px;
-    background: rgba(255,253,250,0.96);
+    background: rgba(255,255,255,0.96);
     box-shadow: var(--shadow-nav-compact);
     border-color: var(--border-strong);
   }
@@ -217,37 +220,32 @@ const css = `
     flex-shrink: 0;
   }
 
-  .brand-logo {
-    width: 50px;
-    height: 52px;
-  }
-  
-  .floating-nav.scrolled .brand-logo {
-    width: 26px;
-    height: 26px;
-  }
-
   .brand-row .brand-name {
     font-family: var(--font-display);
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.3px;
+    font-size: 20px;
+    font-weight: 800;
+   background: linear-gradient(135deg, #111111 0%, #1e5c47 50%, #25784c 100%);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+    letter-spacing: -0.4px;
     line-height: 1;
     transition: font-size 0.3s ease;
   }
   
   .floating-nav.scrolled .brand-name {
-    font-size: 14.5px;
+    font-size: 16px;
   }
 
   .brand-row .brand-tagline {
     font-size: 10px;
+    font-weight: 600;
     color: var(--text-muted);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     line-height: 1;
-    margin-top: 2px;
+    margin-top: 4px;
     transition: opacity 0.3s ease;
   }
   
@@ -270,10 +268,10 @@ const css = `
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 16px;
-    border-radius: var(--radius-md);
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
     font-family: var(--font-body);
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-secondary);
     text-decoration: none;
@@ -283,17 +281,17 @@ const css = `
 
   .nav-links a:hover {
     color: var(--text-primary);
-    background: rgba(186, 216, 236, 0.34);
+    background: rgba(213, 230, 243, 0.4);
   }
 
   .nav-links a.active {
     color: var(--text-primary);
-    background: rgba(184, 221, 194, 0.35);
+    background: rgba(210, 232, 217, 0.4);
   }
 
   .nav-icon {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
     opacity: 0.7;
   }
 
@@ -306,21 +304,21 @@ const css = `
 
   .nav-actions button {
     font-family: var(--font-body);
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 500;
-    padding: 8px 20px;
-    border-radius: var(--radius-md);
+    padding: 7px 18px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--accent);
     background: var(--accent);
     color: #fff;
     cursor: pointer;
     transition: all 0.2s ease;
     letter-spacing: -0.1px;
-    box-shadow: 0 10px 24px rgba(48, 94, 100, 0.16);
+    box-shadow: 0 8px 16px rgba(58, 109, 116, 0.12);
   }
 
   .nav-actions button:hover {
-    background: rgba(255, 253, 250, 0.72);
+    background: rgba(255, 255, 255, 0.8);
     color: var(--accent-strong);
   }
 
@@ -332,34 +330,34 @@ const css = `
   }
 
   .page {
-    padding-top: calc(var(--nav-height) + 76px);
+    padding-top: calc(var(--nav-height) + 64px);
     flex: 1;
   }
 
   /* Landing Hero */
   .landing-page {
-    padding-top: calc(var(--nav-height) + 88px);
+    padding-top: calc(var(--nav-height) + 72px);
   }
 
   .hero-section {
-    max-width: 1100px;
+    max-width: 1060px;
     margin: 0 auto;
-    padding: 0 32px 64px;
+    padding: 0 24px 56px;
   }
 
   .hero-eyebrow {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: linear-gradient(135deg, rgba(186, 216, 236, 0.34), rgba(255, 253, 250, 0.9));
-    border: 1px solid rgba(242, 212, 138, 0.85);
+    background: linear-gradient(135deg, rgba(213, 230, 243, 0.4), rgba(255, 255, 255, 0.9));
+    border: 1px solid rgba(246, 232, 196, 0.9);
     border-radius: var(--radius-md);
-    padding: 6px 14px 6px 10px;
-    font-size: 12px;
+    padding: 5px 12px 5px 10px;
+    font-size: 11px;
     font-weight: 500;
     color: var(--text-secondary);
     letter-spacing: 0.02em;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
 
   .hero-eyebrow .dot {
@@ -377,13 +375,13 @@ const css = `
 
   .hero-headline {
     font-family: var(--font-display);
-    font-size: clamp(32px, 4.5vw, 56px);
+    font-size: clamp(28px, 4vw, 48px);
     font-weight: 800;
     line-height: 1.1;
-    letter-spacing: -1.5px;
+    letter-spacing: -1.2px;
     color: var(--text-primary);
-    max-width: 760px;
-    margin-bottom: 20px;
+    max-width: 720px;
+    margin-bottom: 16px;
   }
 
   .hero-headline em {
@@ -392,12 +390,12 @@ const css = `
   }
 
   .hero-subtext {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 400;
     color: var(--text-secondary);
-    max-width: 560px;
+    max-width: 520px;
     line-height: 1.6;
-    margin-bottom: 36px;
+    margin-bottom: 32px;
   }
 
   .hero-cta-row {
@@ -405,15 +403,15 @@ const css = `
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
-    margin-bottom: 64px;
+    margin-bottom: 56px;
   }
 
   .btn-primary {
     font-family: var(--font-body);
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 500;
-    padding: 13px 28px;
-    border-radius: var(--radius-md);
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--accent);
     background: var(--accent);
     color: #fff;
@@ -426,16 +424,16 @@ const css = `
   }
 
   .btn-primary:hover {
-    background: rgba(255, 253, 250, 0.72);
+    background: rgba(255, 255, 255, 0.8);
     color: var(--accent-strong);
   }
 
   .btn-ghost {
     font-family: var(--font-body);
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 500;
-    padding: 13px 24px;
-    border-radius: var(--radius-md);
+    padding: 12px 22px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--border-strong);
     background: transparent;
     color: var(--text-secondary);
@@ -448,9 +446,8 @@ const css = `
   }
 
   .btn-ghost:hover {
-    background: rgba(184, 221, 194, 0.18);
+    background: rgba(210, 232, 217, 0.25);
     color: var(--text-primary);
-    border-color: var(--accent);
   }
 
   /* Stats Row */
@@ -460,38 +457,61 @@ const css = `
     gap: 0;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, rgba(184, 221, 194, 0.24), rgba(255, 253, 250, 0.96));
+    background: linear-gradient(135deg, rgba(210, 232, 217, 0.3), rgba(255, 255, 255, 0.96));
     overflow: hidden;
-    margin-bottom: 64px;
+    margin-bottom: 56px;
   }
 
   .stat-item {
     flex: 1;
-    padding: 24px;
+    padding: 20px;
     border-right: 1px solid var(--border);
   }
 
   .stat-item:last-child {
     border-right: none;
   }
+    color: var(--accent-green);
+  .stat-item:nth-child(1) { background: rgba(210, 232, 217, 0.35); }
+  .stat-item:nth-child(2) { background: rgba(213, 230, 243, 0.35); }
+  .stat-item:nth-child(3) { background: rgba(246, 232, 196, 0.3); }
+  .stat-item:nth-child(4) { background: rgba(210, 232, 217, 0.2); }
 
-  .stat-item:nth-child(1) { background: rgba(184, 221, 194, 0.28); }
-  .stat-item:nth-child(2) { background: rgba(186, 216, 236, 0.30); }
-  .stat-item:nth-child(3) { background: rgba(242, 212, 138, 0.26); }
-  .stat-item:nth-child(4) { background: rgba(184, 221, 194, 0.14); }
-
+    text-decoration: underline;
+    text-underline-offset: 2px;
   .stat-value {
     font-family: var(--font-display);
-    font-size: 32px;
-    font-weight: 800;
-    letter-spacing: -1.5px;
+    font-size: 28px;
+    color: var(--accent-strong);
+    letter-spacing: -1.2px;
     color: var(--text-primary);
     line-height: 1;
     margin-bottom: 6px;
   }
 
   .stat-label {
-    font-size: 13px;
+    font-size: 12px;
+
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    margin-top: 10px;
+  }
+
+  .footer-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 2px 0;
+  }
+
+  .footer-links a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
     color: var(--text-muted);
     font-weight: 400;
   }
@@ -503,7 +523,7 @@ const css = `
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
 
   .features-grid {
@@ -514,111 +534,143 @@ const css = `
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    margin-bottom: 64px;
+    margin-bottom: 56px;
   }
 
   .feature-card {
-    background: rgba(255, 253, 250, 0.96);
-    padding: 28px 24px;
+    background: rgba(255, 255, 255, 0.98);
+    padding: 24px 20px;
     transition: background 0.2s ease;
   }
 
   .feature-card:hover {
-    background: rgba(186, 216, 236, 0.20);
+    background: rgba(213, 230, 243, 0.25);
   }
 
   .feature-icon-wrap {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-sm);
-    background: rgba(186, 216, 236, 0.22);
+    background: rgba(213, 230, 243, 0.3);
     border: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
   }
 
   .feature-icon-wrap svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     color: var(--text-secondary);
   }
 
   .feature-title {
     font-family: var(--font-display);
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 8px;
-    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+    letter-spacing: -0.2px;
   }
 
   .feature-desc {
-    font-size: 13.5px;
+    font-size: 13px;
     color: var(--text-secondary);
     line-height: 1.6;
     font-weight: 400;
   }
 
-  /* How it works */
+  /* How it works - Proper Flowchart Edition */
   .how-section {
     margin-bottom: 64px;
   }
 
-  .how-steps {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
+  .how-flowchart {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(213, 230, 243, 0.2);
+    border: 1px solid var(--border-strong);
+    border-radius: 32px;
   }
 
-  .how-step {
-    background: rgba(255, 253, 250, 0.96);
+  .flow-node {
+    flex: 1;
+    background: var(--surface);
     border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    padding: 28px 24px;
-    position: relative;
-    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    border-radius: 24px;
+    padding: 32px 24px;
+    text-align: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.02);
+    transition: box-shadow 0.2s ease;
   }
   
-  .how-step:hover {
-    box-shadow: var(--shadow-card);
-    border-color: var(--text-primary);
+  .flow-node:hover {
+    box-shadow: 0 8px 24px rgba(58, 109, 116, 0.08);
   }
 
-  .step-number {
-    font-family: var(--font-display);
-    font-size: 44px;
-    font-weight: 800;
-    color: rgba(48, 94, 100, 0.16);
-    line-height: 1;
-    margin-bottom: 16px;
-    letter-spacing: -2px;
-    user-select: none;
-  }
-
-  .step-title {
+  .flow-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 20px;
+    border-radius: 14px;
+    background: var(--accent-green-bg);
+    color: var(--accent-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-family: var(--font-display);
     font-size: 16px;
+    font-weight: 800;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 4px 12px rgba(144, 184, 157, 0.25);
+  }
+
+  .flow-title {
+    font-family: var(--font-display);
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 8px;
-    letter-spacing: -0.4px;
+    letter-spacing: -0.2px;
   }
 
-  .step-desc {
-    font-size: 13.5px;
+  .flow-desc {
+    font-size: 13px;
     color: var(--text-secondary);
     line-height: 1.6;
     font-weight: 400;
   }
 
+  .flow-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    z-index: 2;
+  }
+
+  .flow-connector svg {
+    width: 18px;
+    height: 18px;
+  }
+
   /* Terminal preview */
   .terminal-section {
-    background: linear-gradient(180deg, #2d5055 0%, #243f44 100%);
+    background: linear-gradient(180deg, #33595e 0%, #28474c 100%);
     border-radius: var(--radius-xl);
-    padding: 32px 36px;
-    margin-bottom: 64px;
+    padding: 28px 32px;
+    margin-bottom: 56px;
     overflow: hidden;
     position: relative;
   }
@@ -627,7 +679,7 @@ const css = `
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
 
   .terminal-dot {
@@ -668,8 +720,8 @@ const css = `
     display: flex;
     align-items: center;
     gap: 20px;
-    margin-top: 28px;
-    padding-top: 20px;
+    margin-top: 24px;
+    padding-top: 16px;
     border-top: 1px solid rgba(255,255,255,0.08);
   }
 
@@ -678,7 +730,7 @@ const css = `
     align-items: center;
     gap: 6px;
     font-size: 12px;
-    color: rgba(255,255,255,0.5);
+    color: rgba(255,255,255,0.6);
   }
 
   .provider-chip .led {
@@ -694,73 +746,76 @@ const css = `
   .usecases-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 64px;
+    gap: 16px;
+    margin-bottom: 56px;
   }
 
   .usecase-card {
-    background: rgba(255, 253, 250, 0.96);
-    border: 1px solid var(--border-strong);
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 28px 24px;
-    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    padding: 24px 20px;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
   }
 
   .usecase-card:hover {
     box-shadow: var(--shadow-card);
-    border-color: var(--text-primary);
   }
 
   .usecase-badge {
     display: inline-block;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    padding: 4px 10px;
-    background: rgba(242, 212, 138, 0.24);
+    padding: 4px 8px;
+    background: rgba(246, 232, 196, 0.35);
     color: var(--text-muted);
-    margin-bottom: 12px;
+    border-radius: 4px;
+    margin-bottom: 10px;
   }
 
   .usecase-title {
     font-family: var(--font-display);
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--text-primary);
-    letter-spacing: -0.5px;
-    margin-bottom: 8px;
+    letter-spacing: -0.4px;
+    margin-bottom: 6px;
   }
 
   .usecase-desc {
-    font-size: 13.5px;
+    font-size: 13px;
     color: var(--text-secondary);
     line-height: 1.6;
     font-weight: 400;
   }
 
   .cta-banner {
-    background: linear-gradient(135deg, rgba(186, 216, 236, 0.26), rgba(255, 253, 250, 0.95));
-    padding: 48px;
+    background: linear-gradient(135deg, rgba(213, 230, 243, 0.3), rgba(255, 255, 255, 0.95));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 40px;
     text-align: center;
-    margin-bottom: 64px;
+    margin-bottom: 56px;
   }
 
   .cta-banner h2 {
     font-family: var(--font-display);
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 800;
     color: var(--text-primary);
-    letter-spacing: -1px;
+    letter-spacing: -0.8px;
     margin-bottom: 12px;
   }
 
   .cta-banner p {
-    font-size: 14.5px;
+    font-size: 14px;
     color: var(--text-secondary);
     font-weight: 400;
-    margin-bottom: 32px;
-    max-width: 480px;
+    margin-bottom: 24px;
+    max-width: 440px;
     margin-left: auto;
     margin-right: auto;
     line-height: 1.6;
@@ -768,10 +823,10 @@ const css = `
 
   .btn-primary-light {
     font-family: var(--font-body);
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 500;
-    padding: 13px 28px;
-    border-radius: var(--radius-md);
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--accent);
     background: var(--accent);
     color: #fff;
@@ -784,87 +839,87 @@ const css = `
   }
 
   .btn-primary-light:hover {
-    background: rgba(255, 253, 250, 0.72);
+    background: rgba(255, 255, 255, 0.8);
     color: var(--accent-strong);
   }
 
   /* Workspace Page */
   .workspace-shell {
-    max-width: 1100px;
+    max-width: 1060px;
     margin: 0 auto;
-    padding: 32px 32px 80px;
+    padding: 24px 24px 64px;
   }
 
   /* About Page */
   .about-page {
-    max-width: 820px;
+    max-width: 780px;
     margin: 0 auto;
-    padding-left: 32px;
-    padding-right: 32px;
-    padding-bottom: 80px;
+    padding-left: 24px;
+    padding-right: 24px;
+    padding-bottom: 64px;
   }
 
   .about-page h2 {
     font-family: var(--font-display);
-    font-size: 40px;
+    font-size: 32px;
     font-weight: 800;
-    letter-spacing: -1px;
-    margin-bottom: 32px;
+    letter-spacing: -0.8px;
+    margin-bottom: 24px;
     color: var(--text-primary);
   }
 
   .about-page p {
-    font-size: 16px;
+    font-size: 15px;
     color: var(--text-secondary);
     font-weight: 400;
-    line-height: 1.75;
-    margin-bottom: 20px;
+    line-height: 1.7;
+    margin-bottom: 18px;
   }
 
   .about-copy {
     display: grid;
     gap: 0;
-    background: rgba(255, 253, 250, 0.96);
+    background: rgba(255, 255, 255, 0.98);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
-    padding: 32px;
+    padding: 28px;
     box-shadow: var(--shadow-card);
   }
 
   .built-by {
     font-family: var(--font-display);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--text-muted);
-    margin-top: 48px;
+    margin-top: 40px;
   }
 
   /* Footer */
   .site-footer {
-    background: linear-gradient(180deg, rgba(186, 216, 236, 0.16), rgba(245, 250, 248, 0.94));
+    background: linear-gradient(180deg, rgba(213, 230, 243, 0.15), rgba(248, 251, 251, 0.94));
     border-top: 1px solid var(--border-strong);
-    padding: 48px 48px 40px;
+    padding: 40px 40px 32px;
     display: grid;
     grid-template-columns: 2fr 1fr 1fr;
-    gap: 48px;
-    max-width: 1200px;
+    gap: 40px;
+    max-width: 1140px;
     margin: 0 auto;
     width: 100%;
   }
 
   .site-footer strong {
     font-family: var(--font-display);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-primary);
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .site-footer p {
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--text-muted);
-    line-height: 1.7;
+    line-height: 1.6;
     font-weight: 400;
   }
 
@@ -872,7 +927,7 @@ const css = `
   .auth-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.45);
+    background: rgba(0,0,0,0.4);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -884,45 +939,45 @@ const css = `
     background: var(--surface);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
-    padding: 44px 40px;
+    padding: 36px 32px;
     width: 100%;
-    max-width: 400px;
+    max-width: 380px;
     position: relative;
     box-shadow: var(--shadow-card);
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
   }
 
   .auth-card h3 {
     font-family: var(--font-display);
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 800;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.4px;
     color: var(--text-primary);
     margin-bottom: 4px;
   }
 
   .auth-card > p {
-    font-size: 13.5px;
+    font-size: 13px;
     color: var(--text-muted);
     font-weight: 400;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .auth-logo {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
   }
 
   .auth-card input {
     width: 100%;
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-strong);
-    background: rgba(186, 216, 236, 0.14);
+    background: rgba(213, 230, 243, 0.15);
     font-family: var(--font-body);
-    font-size: 14px;
+    font-size: 13.5px;
     color: var(--text-primary);
     outline: none;
     transition: border-color 0.2s ease;
@@ -934,13 +989,13 @@ const css = `
 
   .auth-card button {
     width: 100%;
-    padding: 12px 20px;
+    padding: 10px 16px;
     border-radius: var(--radius-md);
     border: 1px solid var(--accent);
     background: var(--accent);
     color: #fff;
     font-family: var(--font-body);
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -952,7 +1007,7 @@ const css = `
   }
 
   .auth-card button:hover:not(:disabled) { 
-    background: rgba(255, 253, 250, 0.72);
+    background: rgba(255, 255, 255, 0.8);
     color: var(--accent-strong);
   }
 
@@ -961,102 +1016,98 @@ const css = `
     color: var(--text-primary);
     border: 1px solid var(--border-strong);
   }
-  
-  
 
   .auth-card button.text-btn {
     background: transparent;
     color: var(--text-muted);
     border: none;
-    font-size: 13px;
+    font-size: 12.5px;
   }
-  
-  
 
   .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.45);
+    background: rgba(0,0,0,0.4);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 2000;
     backdrop-filter: blur(4px);
-    padding: 20px;
+    padding: 16px;
   }
 
   .modal-card {
     background: var(--surface);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
-    padding: 40px;
+    padding: 32px;
     width: 100%;
-    max-width: 440px;
+    max-width: 420px;
     position: relative;
     box-shadow: var(--shadow-card);
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
   }
 
   .modal-card--auth {
-    max-width: 480px;
-    gap: 18px;
-    padding: 32px;
+    max-width: 460px;
+    gap: 16px;
+    padding: 28px;
   }
 
   .modal-card--wide {
-    max-width: 720px;
+    max-width: 680px;
   }
 
   .modal-auth-head {
     display: grid;
-    gap: 10px;
-    padding-right: 48px;
+    gap: 8px;
+    padding-right: 40px;
   }
 
   .modal-auth-badge {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
     display: grid;
     place-items: center;
-    background: rgba(186, 216, 236, 0.24);
+    background: rgba(213, 230, 243, 0.3);
     border: 1px solid var(--border);
   }
 
   .modal-auth-badge svg {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
   }
 
   .modal-copy {
-    font-size: 13.5px;
+    font-size: 13px;
     color: var(--text-secondary);
-    line-height: 1.65;
+    line-height: 1.6;
   }
 
   .modal-close {
     position: absolute;
-    top: 16px;
-    right: 16px;
-    background: rgba(186, 216, 236, 0.24) !important;
+    top: 14px;
+    right: 14px;
+    background: rgba(213, 230, 243, 0.3) !important;
     color: var(--text-secondary) !important;
     border: 1px solid var(--border) !important;
     width: auto !important;
-    padding: 6px 14px !important;
-    font-size: 12px !important;
-    border-radius: var(--radius-md) !important;
+    padding: 5px 12px !important;
+    font-size: 11px !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   .google-auth-button,
   .modal-primary-button {
     width: 100%;
-    min-height: 48px;
-    border-radius: 14px;
-    padding: 12px 16px;
+    min-height: 44px;
+    border-radius: 12px;
+    padding: 10px 14px;
     font-family: var(--font-body);
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1066,16 +1117,15 @@ const css = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 10px;
     background: #ffffff;
     color: #24353a;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
   }
 
   .google-auth-button:hover:not(:disabled) {
-    background: #f8fbff;
-    border-color: rgba(66, 133, 244, 0.28);
+    background: #f8fafd;
   }
 
   .google-auth-button:disabled,
@@ -1087,8 +1137,8 @@ const css = `
   }
 
   .google-auth-icon {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1096,14 +1146,14 @@ const css = `
   }
 
   .google-auth-icon svg {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
   }
 
   .modal-divider {
     position: relative;
     text-align: center;
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--text-muted);
   }
 
@@ -1117,19 +1167,19 @@ const css = `
 
   .modal-divider span {
     position: relative;
-    padding: 0 12px;
+    padding: 0 10px;
     background: var(--surface);
   }
 
   .field-stack {
     display: grid;
-    gap: 12px;
+    gap: 10px;
   }
 
   .field-stack label {
     display: grid;
-    gap: 6px;
-    font-size: 13px;
+    gap: 4px;
+    font-size: 12.5px;
     color: var(--text-primary);
     font-weight: 600;
   }
@@ -1137,12 +1187,12 @@ const css = `
   .field-stack input,
   .field-stack textarea {
     width: 100%;
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-strong);
-    background: rgba(186, 216, 236, 0.14);
+    background: rgba(213, 230, 243, 0.15);
     font-family: var(--font-body);
-    font-size: 14px;
+    font-size: 13.5px;
     color: var(--text-primary);
     outline: none;
     resize: vertical;
@@ -1155,66 +1205,65 @@ const css = `
 
   .onboarding-steps {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
   }
 
   .onboarding-steps span {
     border: 1px solid var(--border);
     border-radius: 9999px;
-    padding: 6px 10px;
-    font-size: 11px;
+    padding: 5px 8px;
+    font-size: 10.5px;
     color: var(--text-muted);
   }
 
   .onboarding-steps span.active {
     background: var(--accent-green-bg);
     color: var(--text-primary);
-    border-color: rgba(48, 94, 100, 0.12);
+    border-color: rgba(48, 94, 100, 0.1);
     font-weight: 700;
   }
 
   .inline-warning {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--accent-red);
     background: var(--accent-red-bg);
-    padding: 10px 14px;
+    padding: 8px 12px;
     border-radius: var(--radius-sm);
   }
 
   .modal-actions {
     display: grid;
-    gap: 10px;
+    gap: 8px;
   }
 
   .modal-primary-button {
     border: 1px solid var(--accent);
     background: var(--accent);
     color: #fff;
-    box-shadow: 0 10px 24px rgba(48, 94, 100, 0.16);
+    box-shadow: 0 8px 20px rgba(58, 109, 116, 0.12);
   }
 
   .modal-primary-button:hover:not(:disabled) {
-    background: rgba(255, 253, 250, 0.72);
+    background: rgba(255, 255, 255, 0.8);
     color: var(--accent-strong);
   }
 
   .modal-actions .secondary {
     border: 1px solid var(--border-strong);
-    background: rgba(186, 216, 236, 0.16);
+    background: rgba(213, 230, 243, 0.2);
     color: var(--text-primary);
   }
 
   .modal-actions .secondary:hover:not(:disabled) {
-    border-color: var(--accent);
-    background: rgba(184, 221, 194, 0.20);
+    background: rgba(210, 232, 217, 0.25);
   }
 
   .text-button {
     border: none;
     background: transparent;
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 600;
     padding: 0;
     cursor: pointer;
@@ -1227,22 +1276,22 @@ const css = `
 
   .close-auth {
     position: absolute;
-    top: 16px;
-    right: 16px;
-    background: rgba(186, 216, 236, 0.24) !important;
+    top: 14px;
+    right: 14px;
+    background: rgba(213, 230, 243, 0.3) !important;
     color: var(--text-secondary) !important;
     border: 1px solid var(--border) !important;
     width: auto !important;
-    padding: 6px 14px !important;
-    font-size: 12px !important;
-    border-radius: var(--radius-md) !important;
+    padding: 5px 12px !important;
+    font-size: 11px !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   .warning-copy {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--accent-red);
     background: var(--accent-red-bg);
-    padding: 10px 14px;
+    padding: 8px 12px;
     border-radius: var(--radius-sm);
   }
 `;
@@ -1277,6 +1326,8 @@ export default function App() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [profile, setProfile] = useState<WorkspaceProfile>(DEFAULT_PROFILE);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [firebaseReady, setFirebaseReady] = useState(false);
+  const [configLoaded, setConfigLoaded] = useState(false);
 
   const userAvatarSeed = currentUser?.id || currentUser?.email || profile.displayName || profile.email || "flowsense";
   const userAvatarUrl = useMemo(() => getDiceBearAvatarUrl(userAvatarSeed), [userAvatarSeed]);
@@ -1357,8 +1408,16 @@ export default function App() {
 
   useEffect(() => {
     requestConfig()
-      .then((config) => setProviders(config.providers))
-      .catch(() => setProviders(DEFAULT_PROVIDER_STATUS));
+      .then((config) => {
+        setProviders(config.providers);
+        setFirebaseReady(configureFirebase(config.firebaseWebConfig));
+        setConfigLoaded(true);
+      })
+      .catch(() => {
+        setProviders(DEFAULT_PROVIDER_STATUS);
+        setFirebaseReady(false);
+        setConfigLoaded(true);
+      });
   }, []);
 
   useEffect(() => {
@@ -1543,20 +1602,28 @@ export default function App() {
       setAuthLoading(true);
       setAuthError("");
 
-      // NOTE: In production, you would integrate with Google's Sign-In library
-      // Install: npm install @react-oauth/google
-      // Then wrap App with: <GoogleOAuthProvider clientId="...">
-      // And trigger: googleLogin() from the button
-      // This handler would then receive the credential JWT
+      if (!firebaseReady || !hasFirebaseConfig) {
+        setAuthError("Firebase Google Sign-In is not configured from the backend.");
+        return;
+      }
 
-      // For now, show a helpful message about setup
-      setAuthError(
-        "Google Sign-In requires setup: Install @react-oauth/google and add your Google Client ID. " +
-        "Backend OAuth endpoint is ready at /api/auth/google. " +
-        "See backend/.env.example for configuration."
-      );
+      const googleAuth = await signInWithGooglePopup();
+      if (!googleAuth.googleIdToken) {
+        throw new Error("Google sign-in token was not returned by Firebase. Check Google provider setup.");
+      }
+
+      await requestGoogleAuth({
+        email: googleAuth.email,
+        displayName: googleAuth.displayName,
+        photoURL: googleAuth.photoURL,
+        idToken: googleAuth.googleIdToken,
+      });
+
+      await loadSessionState(true);
+      setAuthModalOpen(false);
+      navigate("/workspace/dashboard");
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Google sign-in setup required.");
+      setAuthError(error instanceof Error ? error.message : "Google sign-in failed.");
     } finally {
       setAuthLoading(false);
     }
@@ -1579,7 +1646,6 @@ export default function App() {
       {!isWorkspaceRoute && (
         <header className={`floating-nav ${isScrolled ? "scrolled" : ""}`}>
           <div className="brand-row">
-            <img src={logoSrc} alt="FlowSense logo" className="brand-logo" />
             <div>
               <div className="brand-name">FlowSense.ai</div>
               <div className="brand-tagline">UX Intelligence</div>
@@ -1727,35 +1793,53 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* How it works */}
+                {/* How it works - Flowchart Edition */}
                 <div className="how-section">
                   <p className="section-label">How it works</p>
-                  <div className="how-steps">
-                    <div className="how-step">
-                      <div className="step-number">01</div>
-                      <div className="step-title">Submit a URL</div>
-                      <p className="step-desc">
-                        Paste any product URL into the Workspace. The agent immediately begins
-                        staging its autonomous interaction runtime.
+                  
+                  <div className="how-flowchart">
+                    {/* Node 1 */}
+                    <div className="flow-node">
+                      <div className="flow-icon">01</div>
+                      <h4 className="flow-title">Submit a URL</h4>
+                      <p className="flow-desc">
+                        Paste any product URL into the Workspace. The agent immediately begins staging its autonomous interaction runtime.
                       </p>
                     </div>
-                    <div className="how-step">
-                      <div className="step-number">02</div>
-                      <div className="step-title">Agent simulates</div>
-                      <p className="step-desc">
-                        FlowSense traverses real user paths - navigating, clicking, and scoring
-                        friction across the full journey in under 60 seconds.
+
+                    {/* Arrow 1 */}
+                    <div className="flow-connector">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14m-7-7 7 7-7 7"/>
+                      </svg>
+                    </div>
+
+                    {/* Node 2 */}
+                    <div className="flow-node">
+                      <div className="flow-icon">02</div>
+                      <h4 className="flow-title">Agent simulates</h4>
+                      <p className="flow-desc">
+                        FlowSense traverses real user paths - navigating, clicking, and scoring friction across the full journey in under 60 seconds.
                       </p>
                     </div>
-                    <div className="how-step">
-                      <div className="step-number">03</div>
-                      <div className="step-title">Ship the fix</div>
-                      <p className="step-desc">
-                        Copy implementation-ready prompts directly into Cursor, Linear, or your
-                        PR description. No translation required.
+
+                    {/* Arrow 2 */}
+                    <div className="flow-connector">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14m-7-7 7 7-7 7"/>
+                      </svg>
+                    </div>
+
+                    {/* Node 3 */}
+                    <div className="flow-node">
+                      <div className="flow-icon">03</div>
+                      <h4 className="flow-title">Ship the fix</h4>
+                      <p className="flow-desc">
+                        Copy implementation-ready prompts directly into Cursor, Linear, or your PR description. No translation required.
                       </p>
                     </div>
                   </div>
+
                 </div>
 
                 {/* Terminal Preview */}
@@ -1947,7 +2031,11 @@ export default function App() {
           </div>
           <div>
             <strong style={{ fontSize: 13, fontFamily: "var(--font-body)", fontWeight: 500 }}>Navigate</strong>
-            <p>Home &middot; Workspace &middot; About</p>
+            <div className="footer-links">
+              <NavLink to="/">Home</NavLink>
+              <NavLink to="/workspace">Workspace</NavLink>
+              <NavLink to="/about">About</NavLink>
+            </div>
           </div>
           <div>
             <strong style={{ fontSize: 13, fontFamily: "var(--font-body)", fontWeight: 500 }}>Built by</strong>
@@ -1963,7 +2051,8 @@ export default function App() {
         password={authPassword}
         loading={authLoading}
         error={authError}
-        enabled
+        enabled={firebaseReady && hasFirebaseConfig}
+        configLoaded={configLoaded}
         onClose={() => {
           setAuthModalOpen(false);
           setAuthError("");

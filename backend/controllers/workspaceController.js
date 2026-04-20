@@ -6,6 +6,30 @@ import {
 } from "../services/authStore.js";
 import { sendJsonError } from "../utils/http.js";
 
+function isValidHttpUrl(value) {
+  if (typeof value !== "string" || !value.trim()) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function isValidReport(report) {
+  if (!report || typeof report !== "object") return false;
+  if (typeof report.id !== "string" || !report.id.trim()) return false;
+  if (!isValidHttpUrl(report.url)) return false;
+  if (!Number.isFinite(report.uxScore)) return false;
+  if (!Number.isFinite(report.confidenceScore)) return false;
+  if (!Number.isFinite(report.screensVisited)) return false;
+  if (!Number.isFinite(report.frictionPoints)) return false;
+  if (!Array.isArray(report.issues) || report.issues.length > 100) return false;
+  if (!Array.isArray(report.suggestions) || report.suggestions.length > 100) return false;
+  if (!Array.isArray(report.journey) || report.journey.length > 200) return false;
+  return true;
+}
+
 export async function getProfile(req, res) {
   try {
     const profile = await getProfileForUser(req.user.id);
@@ -36,7 +60,7 @@ export async function listAnalyses(req, res) {
 
 export async function saveAnalysis(req, res) {
   const report = req.body?.report;
-  if (!report?.id) {
+  if (!isValidReport(report)) {
     sendJsonError(res, 400, "Report payload is required.");
     return;
   }

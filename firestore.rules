@@ -1,12 +1,33 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Legacy profile path (kept for compatibility)
     match /users/{userId}/profile/{docId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Legacy analyses path (kept for compatibility)
     match /users/{userId}/analyses/{analysisId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Current profile path used by backend persistence model
+    match /profiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Current analyses path used by backend persistence model
+    match /analyses/{userId}/entries/{entryId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Sensitive collections: backend-only (Firebase Admin SDK bypasses rules)
+    match /sessions/{docId} {
+      allow read, write: if false;
+    }
+
+    match /users/{docId} {
+      allow read, write: if false;
     }
   }
 }

@@ -11,6 +11,44 @@ import {
 } from "../services/authStore.js";
 import { sendJsonError } from "../utils/http.js";
 
+async function verifyGoogleToken(idToken, expectedEmail) {
+  const token = String(idToken || "").trim();
+  if (!token) {
+    throw new Error("Google token is required.");
+  }
+
+  const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`);
+  if (!response.ok) {
+    throw new Error("Google token verification failed.");
+  }
+
+  const payload = await response.json();
+  const verifiedEmail = String(payload.email || "").trim().toLowerCase();
+  const verifiedSub = String(payload.sub || "").trim();
+  const emailVerified = String(payload.email_verified || "").toLowerCase() === "true";
+  const requiredAudience = String(process.env.GOOGLE_CLIENT_ID || "").trim();
+
+  if (requiredAudience && String(payload.aud || "") !== requiredAudience) {
+    throw new Error("Google token audience mismatch.");
+  }
+
+  if (!emailVerified || !verifiedEmail || !verifiedSub) {
+    throw new Error("Google account is not verified.");
+  }
+
+  const normalizedExpectedEmail = String(expectedEmail || "").trim().toLowerCase();
+  if (normalizedExpectedEmail && verifiedEmail !== normalizedExpectedEmail) {
+    throw new Error("Google token email mismatch.");
+  }
+
+  return {
+    email: verifiedEmail,
+    googleId: verifiedSub,
+    displayName: String(payload.name || "").trim(),
+    photoURL: String(payload.picture || "").trim(),
+  };
+}
+
 export async function signUp(req, res) {
   try {
     const user = await signUpWithEmail({
@@ -27,7 +65,7 @@ export async function signUp(req, res) {
     res.setHeader("Set-Cookie", buildSessionCookie(session.token));
     res.status(201).json({ user, session: { authenticated: true } });
   } catch (error) {
-    sendJsonError(res, 400, error instanceof Error ? error.message : "Unable to create account.");
+    sendJsonError(res, 400, "Unable to create account.");
   }
 }
 
@@ -60,14 +98,14 @@ export async function authSession(req, res) {
   const cookies = parseCookies(req.headers.cookie);
   const token = cookies[cookieName()];
   if (!token) {
-    res.status(401).json({ authenticated: false });
+    res.json({ authenticated: false });
     return;
   }
 
   const user = await findUserBySessionToken(token);
   if (!user) {
     res.setHeader("Set-Cookie", clearSessionCookie());
-    res.status(401).json({ authenticated: false });
+    res.json({ authenticated: false });
     return;
   }
 
@@ -95,22 +133,19 @@ export async function requireAuth(req, res, next) {
 
 export async function googleAuth(req, res) {
   try {
-    const { googleId, email, displayName, photoURL, idToken } = req.body || {};
+    const { email, displayName, photoURL, idToken } = req.body || {};
 
-    // Validate required fields
-    if (!googleId || !email) {
-      throw new Error("Google ID and email are required.");
+    if (!idToken) {
+      throw new Error("Google token is required.");
     }
 
-    // In production, you should verify the ID token against Google's servers
-    // For now, we trust the frontend's JWT validation
-    // TODO: Implement server-side token verification with Google's API
+    const verified = await verifyGoogleToken(idToken, email);
 
     const session = await signInWithGoogle({
-      googleId,
-      email,
-      displayName,
-      photoURL,
+      googleId: verified.googleId,
+      email: verified.email,
+      displayName: String(displayName || "").trim() || verified.displayName,
+      photoURL: String(photoURL || "").trim() || verified.photoURL,
     });
 
     res.setHeader("Set-Cookie", buildSessionCookie(session.token));
@@ -119,6 +154,6 @@ export async function googleAuth(req, res) {
       session: { authenticated: true },
     });
   } catch (error) {
-    sendJsonError(res, 401, error instanceof Error ? error.message : "Google sign-in failed.");
+    sendJsonError(res, 401, "Google sign-in failed.");
   }
 }

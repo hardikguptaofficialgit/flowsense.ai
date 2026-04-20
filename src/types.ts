@@ -101,6 +101,14 @@ export interface ProviderStatus {
 
 export interface ConfigResponse {
   providers: ProviderStatus;
+  firebaseWebConfig: {
+    apiKey: string;
+    authDomain: string;
+    projectId: string;
+    storageBucket: string;
+    messagingSenderId: string;
+    appId: string;
+  };
   continuousHooks: {
     deployment: string;
     pullRequest: string;

@@ -64,10 +64,22 @@ export async function compareJourneys(leftUrl, rightUrl) {
   };
 }
 
-export function getRuntimeConfig() {
+export function getRuntimeConfig(options = {}) {
+  const includeDiagnostics = Boolean(options.includeDiagnostics);
+
+  const firebaseWebConfig = {
+    apiKey: process.env.FIREBASE_WEB_API_KEY || "",
+    authDomain: process.env.FIREBASE_WEB_AUTH_DOMAIN || "",
+    projectId: process.env.FIREBASE_WEB_PROJECT_ID || "",
+    storageBucket: process.env.FIREBASE_WEB_STORAGE_BUCKET || "",
+    messagingSenderId: process.env.FIREBASE_WEB_MESSAGING_SENDER_ID || "",
+    appId: process.env.FIREBASE_WEB_APP_ID || "",
+  };
+
   return {
     providers: configuredProviders(),
-    automation: getBrowserDiagnostics(),
+    firebaseWebConfig,
+    ...(includeDiagnostics ? { automation: getBrowserDiagnostics() } : {}),
     continuousHooks: {
       deployment: "/api/hooks/deployment",
       pullRequest: "/api/hooks/pr-merge",

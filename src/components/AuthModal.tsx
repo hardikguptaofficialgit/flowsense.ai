@@ -20,6 +20,7 @@ interface AuthModalProps {
   loading: boolean;
   error: string;
   enabled: boolean;
+  configLoaded: boolean;
   onClose: () => void;
   onModeChange: (mode: "signin" | "signup") => void;
   onEmailChange: (value: string) => void;
@@ -34,16 +35,15 @@ export function AuthModal(props: AuthModalProps) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <div className="modal-card modal-card--auth">
-        <button className="modal-close" onClick={props.onClose}>
+        <button type="button" className="modal-close" onClick={props.onClose}>
           Close
         </button>
         <div className="modal-auth-head">
-         
           <h3>{props.mode === "signin" ? "Sign in to FlowSense" : "Create your FlowSense account"}</h3>
           <p className="modal-copy">Save analysis history, sync reports, and keep your workspace profile in one place.</p>
         </div>
 
-        <button className="google-auth-button" onClick={props.onGoogle} disabled={props.loading || !props.enabled}>
+        <button type="button" className="google-auth-button" onClick={props.onGoogle} disabled={props.loading || !props.enabled}>
           <span className="google-auth-icon"><GoogleIcon /></span>
           <span>{props.mode === "signin" ? "Continue with Google" : "Sign up with Google"}</span>
         </button>
@@ -56,7 +56,7 @@ export function AuthModal(props: AuthModalProps) {
           <label>
             Email
             <input
-              value={props.email}
+              value={props.email || ""}
               onChange={(event) => props.onEmailChange(event.target.value)}
               type="email"
               placeholder="name@company.com"
@@ -66,7 +66,7 @@ export function AuthModal(props: AuthModalProps) {
           <label>
             Password
             <input
-              value={props.password}
+              value={props.password || ""}
               onChange={(event) => props.onPasswordChange(event.target.value)}
               type="password"
               placeholder="Minimum secure password"
@@ -75,19 +75,20 @@ export function AuthModal(props: AuthModalProps) {
         </div>
 
         <div className="modal-actions">
-          <button className="modal-primary-button" onClick={props.onSubmit} disabled={props.loading || !props.enabled}>
+          <button type="button" className="modal-primary-button" onClick={props.onSubmit} disabled={props.loading}>
             {props.loading ? "Processing..." : props.mode === "signin" ? "Sign in" : "Create account"}
           </button>
         </div>
 
         <button
-          className="text-button"
+          type="button"
+          className="text-button text-btn"
           onClick={() => props.onModeChange(props.mode === "signin" ? "signup" : "signin")}
         >
           {props.mode === "signin" ? "Need an account? Create one" : "Already have an account? Sign in"}
         </button>
 
-        {!props.enabled && <p className="inline-warning">Firebase auth is currently unavailable.</p>}
+        {props.configLoaded && !props.enabled && <p className="inline-warning">Google sign-in is unavailable until Firebase config is added. Email auth still works.</p>}
         {props.error && <p className="inline-warning">{props.error}</p>}
       </div>
     </div>
@@ -115,19 +116,19 @@ export function OnboardingModal(props: OnboardingModalProps) {
   if (!props.isOpen) return null;
 
   const canContinueStep1 = Boolean(
-    props.profile.displayName.trim() &&
-    props.profile.companyName.trim()
+    props.profile?.displayName?.trim() &&
+    props.profile?.companyName?.trim()
   );
 
   const canContinueStep2 = Boolean(
-    props.profile.website.trim() &&
-    props.profile.productUrl.trim()
+    props.profile?.website?.trim() &&
+    props.profile?.productUrl?.trim()
   );
 
   const canComplete = Boolean(
     canContinueStep1 &&
     canContinueStep2 &&
-    props.profile.agentName.trim()
+    props.profile?.agentName?.trim()
   );
 
   const updateProfile = (patch: Partial<WorkspaceProfile>) => {
@@ -137,7 +138,7 @@ export function OnboardingModal(props: OnboardingModalProps) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <div className="modal-card modal-card--wide">
-        <button className="modal-close" onClick={props.onClose}>
+        <button type="button" className="modal-close" onClick={props.onClose}>
           Close
         </button>
         <p className="eyebrow">Onboarding</p>
@@ -155,7 +156,7 @@ export function OnboardingModal(props: OnboardingModalProps) {
             <label>
               Your name
               <input
-                value={props.profile.displayName}
+                value={props.profile?.displayName || ""}
                 onChange={(event) => updateProfile({ displayName: event.target.value })}
                 placeholder="Jane Doe"
               />
@@ -164,7 +165,7 @@ export function OnboardingModal(props: OnboardingModalProps) {
             <label>
               Company name
               <input
-                value={props.profile.companyName}
+                value={props.profile?.companyName || ""}
                 onChange={(event) => updateProfile({ companyName: event.target.value })}
                 placeholder="FlowSense Labs"
               />
@@ -173,7 +174,7 @@ export function OnboardingModal(props: OnboardingModalProps) {
             <label>
               Company stage
               <input
-                value={props.profile.companyStage}
+                value={props.profile?.companyStage || ""}
                 onChange={(event) => updateProfile({ companyStage: event.target.value })}
                 placeholder="Idea, seed, growth, enterprise"
               />
@@ -186,7 +187,7 @@ export function OnboardingModal(props: OnboardingModalProps) {
             <label>
               Company website
               <input
-                value={props.profile.website}
+                value={props.profile?.website || ""}
                 onChange={(event) => updateProfile({ website: event.target.value })}
                 placeholder="https://company.com"
               />
@@ -195,7 +196,7 @@ export function OnboardingModal(props: OnboardingModalProps) {
             <label>
               Product URL
               <input
-                value={props.profile.productUrl}
+                value={props.profile?.productUrl || ""}
                 onChange={(event) => updateProfile({ productUrl: event.target.value })}
                 placeholder="https://company.com/app"
               />
@@ -204,7 +205,7 @@ export function OnboardingModal(props: OnboardingModalProps) {
             <label>
               Relevant URLs
               <textarea
-                value={props.profile.relevantUrls}
+                value={props.profile?.relevantUrls || ""}
                 onChange={(event) => updateProfile({ relevantUrls: event.target.value })}
                 placeholder="Homepage, pricing, docs, signup, help center"
               />
@@ -217,7 +218,7 @@ export function OnboardingModal(props: OnboardingModalProps) {
             <label>
               Agent name
               <input
-                value={props.profile.agentName}
+                value={props.profile?.agentName || ""}
                 onChange={(event) => updateProfile({ agentName: event.target.value })}
                 placeholder="FlowSense Scout"
               />
@@ -226,7 +227,7 @@ export function OnboardingModal(props: OnboardingModalProps) {
             <label>
               Agent mode
               <input
-                value={props.profile.agentMode}
+                value={props.profile?.agentMode || ""}
                 onChange={(event) => updateProfile({ agentMode: event.target.value })}
                 placeholder="UX audit, conversion review, design QA"
               />
@@ -235,7 +236,7 @@ export function OnboardingModal(props: OnboardingModalProps) {
             <label>
               Agent notes
               <textarea
-                value={props.profile.agentNotes}
+                value={props.profile?.agentNotes || ""}
                 onChange={(event) => updateProfile({ agentNotes: event.target.value })}
                 placeholder="Anything the agent should prioritize while analyzing your workspace"
               />
@@ -244,18 +245,19 @@ export function OnboardingModal(props: OnboardingModalProps) {
         )}
 
         <div className="modal-actions">
-          <button className="secondary" onClick={() => setStep((current) => Math.max(current - 1, 0))} disabled={step === 0 || props.loading}>
+          <button type="button" className="secondary" onClick={() => setStep((current) => Math.max(current - 1, 0))} disabled={step === 0 || props.loading}>
             Back
           </button>
           {step < 2 ? (
             <button
+              type="button"
               onClick={() => setStep((current) => current + 1)}
               disabled={!(step === 0 ? canContinueStep1 : canContinueStep2) || props.loading}
             >
               Continue
             </button>
           ) : (
-            <button onClick={props.onSubmit} disabled={props.loading || !props.enabled || !canComplete}>
+            <button type="button" onClick={props.onSubmit} disabled={props.loading || !props.enabled || !canComplete}>
               {props.loading ? "Saving..." : "Complete onboarding"}
             </button>
           )}

@@ -9,22 +9,27 @@ import {
 import { authSession, googleAuth, requireAuth, signIn, signOut, signUp } from "../controllers/authController.js";
 import { agentCatalog, chatMessage } from "../controllers/chatController.js";
 import { getProfile, listAnalyses, saveAnalysis, upsertProfile } from "../controllers/workspaceController.js";
+import { createRateLimit, verifyWebhookSignature } from "../middleware/security.js";
 
 const router = Router();
+
+const authLimiter = createRateLimit({ windowMs: 15 * 60 * 1000, max: 12, keyFn: (req) => `auth:${req.path}:${req.socket.remoteAddress}` });
+const publicAnalyzeLimiter = createRateLimit({ windowMs: 5 * 60 * 1000, max: 30, keyFn: (req) => `analyze:${req.path}:${req.socket.remoteAddress}` });
+const webhookLimiter = createRateLimit({ windowMs: 60 * 1000, max: 20, keyFn: (req) => `webhook:${req.path}:${req.socket.remoteAddress}` });
 
 router.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "flowsense-agent", timestamp: new Date().toISOString() });
 });
 
 router.get("/config", configStatus);
-router.post("/analyze", analyzeUrl);
-router.post("/compare", compareUrls);
-router.post("/hooks/deployment", deploymentHook);
-router.post("/hooks/pr-merge", prMergeHook);
+router.post("/analyze", publicAnalyzeLimiter, analyzeUrl);
+router.post("/compare", publicAnalyzeLimiter, compareUrls);
+router.post("/hooks/deployment", webhookLimiter, verifyWebhookSignature, deploymentHook);
+router.post("/hooks/pr-merge", webhookLimiter, verifyWebhookSignature, prMergeHook);
 
-router.post("/auth/signup", signUp);
-router.post("/auth/signin", signIn);
-router.post("/auth/google", googleAuth);
+router.post("/auth/signup", authLimiter, signUp);
+router.post("/auth/signin", authLimiter, signIn);
+router.post("/auth/google", authLimiter, googleAuth);
 router.post("/auth/signout", signOut);
 router.get("/auth/session", authSession);
 

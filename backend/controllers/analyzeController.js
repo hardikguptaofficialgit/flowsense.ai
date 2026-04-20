@@ -24,14 +24,14 @@ export async function analyzeUrl(req, res) {
     sendJsonError(
       res,
       providerFailure ? 502 : 500,
-      providerFailure ? "AI provider execution failed. Check provider keys/models." : "Analysis failed unexpectedly. Please retry.",
-      details
+      providerFailure ? "AI provider execution failed. Check provider configuration." : "Analysis failed unexpectedly. Please retry."
     );
   }
 }
 
-export function configStatus(_req, res) {
-  res.json(getRuntimeConfig());
+export function configStatus(req, res) {
+  const revealDiagnostics = req.query?.debug === "1" && process.env.NODE_ENV !== "production";
+  res.json(getRuntimeConfig({ includeDiagnostics: revealDiagnostics }));
 }
 
 export async function deploymentHook(req, res) {
@@ -45,7 +45,7 @@ export async function deploymentHook(req, res) {
     const report = await analyzeTriggeredJourney(normalizedUrl, "deployment");
     res.json({ status: "processed", report });
   } catch (error) {
-    sendJsonError(res, 500, "Webhook analysis failed.", error instanceof Error ? error.message : "Unknown error");
+    sendJsonError(res, 500, "Webhook analysis failed.");
   }
 }
 
@@ -60,7 +60,7 @@ export async function prMergeHook(req, res) {
     const report = await analyzeTriggeredJourney(normalizedUrl, "pr-merge");
     res.json({ status: "processed", report });
   } catch (error) {
-    sendJsonError(res, 500, "Webhook analysis failed.", error instanceof Error ? error.message : "Unknown error");
+    sendJsonError(res, 500, "Webhook analysis failed.");
   }
 }
 
@@ -77,6 +77,6 @@ export async function compareUrls(req, res) {
     const comparison = await compareJourneys(left, right);
     res.json(comparison);
   } catch (error) {
-    sendJsonError(res, 500, "Comparison failed unexpectedly. Please retry.", error instanceof Error ? error.message : "Unknown error");
+    sendJsonError(res, 500, "Comparison failed unexpectedly. Please retry.");
   }
 }

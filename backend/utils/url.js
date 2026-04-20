@@ -13,11 +13,21 @@ function isPrivateIpv4(hostname) {
   return false;
 }
 
+function isPrivateIpv6(hostname) {
+  const normalized = hostname.toLowerCase();
+  if (normalized === "::1") return true;
+  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
+  if (normalized.startsWith("fe80:")) return true;
+  return false;
+}
+
 function isBlockedHost(hostname) {
   const normalized = hostname.toLowerCase();
   if (["localhost", "0.0.0.0", "::1"].includes(normalized)) return true;
   if (normalized.endsWith(".local")) return true;
+  if (normalized.endsWith(".internal")) return true;
   if (isPrivateIpv4(normalized)) return true;
+  if (isPrivateIpv6(normalized)) return true;
   return false;
 }
 

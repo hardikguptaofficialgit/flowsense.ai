@@ -90,7 +90,7 @@ export async function requestSignOut() {
 }
 
 export async function requestGoogleAuth(payload: {
-  googleId: string;
+  googleId?: string;
   email: string;
   displayName?: string;
   photoURL?: string;

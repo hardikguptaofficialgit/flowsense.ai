@@ -1,4 +1,23 @@
-import "../env.js";
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, "..", ".env"), override: false, quiet: true });
+
+const PROVIDER_TIMEOUT_MS = Math.max(3000, Number.parseInt(process.env.PROVIDER_TIMEOUT_MS || "12000", 10) || 12000);
+
+async function fetchWithTimeout(url, options, timeoutMs = PROVIDER_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function extractContent(payload) {
   if (!payload) return null;
@@ -19,7 +38,7 @@ function extractContent(payload) {
 async function callGroq(messages) {
   if (!process.env.GROQ_API_KEY) return null;
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const response = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -42,7 +61,7 @@ async function callGroq(messages) {
 async function callNvidia(messages) {
   if (!process.env.NVIDIA_API_KEY) return null;
 
-  const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+  const response = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
